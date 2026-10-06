@@ -3,112 +3,81 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-// 生成 macOS App 图标（1024×1024，圆角矩形内含 CPU 曲线），用法: swift make_icon.swift <输出.png>
+// Vitals identity: a single V-shaped pulse, shared with the monochrome menu bar mark.
+// Usage: swift Tools/make_icon.swift <1024px output.png>
 let size = 1024
 let output = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "icon_1024.png"
+let space = CGColorSpace(name: CGColorSpace.sRGB)!
+let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8,
+                        bytesPerRow: 0, space: space,
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+context.setAllowsAntialiasing(true)
 
-guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
-      let context = CGContext(
-        data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
-        space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-      )
-else {
-    fatalError("cannot create context")
+func color(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
+    CGColor(colorSpace: space, components: [r, g, b, a])!
 }
-
-let inset: CGFloat = 100
-let cornerRadius: CGFloat = 186
-let rect = CGRect(x: inset, y: inset, width: CGFloat(size) - inset * 2, height: CGFloat(size) - inset * 2)
-let rounded = CGPath(roundedRect: rect, cornerWidth: cornerRadius, cornerHeight: cornerRadius, transform: nil)
-
-context.addPath(rounded)
-context.clip()
-
-let backgroundGradient = CGGradient(
-    colorsSpace: colorSpace,
-    colors: [
-        CGColor(red: 0.08, green: 0.09, blue: 0.15, alpha: 1),
-        CGColor(red: 0.16, green: 0.19, blue: 0.31, alpha: 1),
-    ] as CFArray,
-    locations: [0, 1]
-)!
-context.drawLinearGradient(
-    backgroundGradient,
-    start: CGPoint(x: 0, y: CGFloat(size)),
-    end: CGPoint(x: CGFloat(size), y: 0),
-    options: []
-)
-
-context.setFillColor(CGColor(red: 0.35, green: 0.55, blue: 1.0, alpha: 0.12))
-context.fillEllipse(in: CGRect(x: -150, y: 520, width: 900, height: 700))
-
-let values: [Double] = [14, 22, 18, 36, 28, 52, 42, 66, 56, 82, 70, 92]
-let chartRect = CGRect(x: 190, y: 330, width: 644, height: 390)
-let stepX = chartRect.width / CGFloat(values.count - 1)
-func point(_ index: Int, _ value: Double) -> CGPoint {
-    CGPoint(
-        x: chartRect.minX + CGFloat(index) * stepX,
-        y: chartRect.minY + chartRect.height * CGFloat(value / 100)
-    )
+func gradient(_ colors: [CGColor]) -> CGGradient {
+    CGGradient(colorsSpace: space, colors: colors as CFArray, locations: nil)!
 }
+let plate = CGRect(x: 100, y: 100, width: 824, height: 824)
+let outline = CGPath(roundedRect: plate, cornerWidth: 184, cornerHeight: 184, transform: nil)
 
-let areaPath = CGMutablePath()
-areaPath.move(to: CGPoint(x: chartRect.minX, y: chartRect.minY))
-for (index, value) in values.enumerated() { areaPath.addLine(to: point(index, value)) }
-areaPath.addLine(to: CGPoint(x: chartRect.maxX, y: chartRect.minY))
-areaPath.closeSubpath()
-
+// Small external shadow, then a restrained deep teal enamel surface.
 context.saveGState()
-context.addPath(areaPath)
+context.setShadow(offset: CGSize(width: 0, height: -8), blur: 20, color: color(0.01, 0.08, 0.10, 0.22))
+context.addPath(outline)
+context.setFillColor(color(0.035, 0.085, 0.12))
+context.fillPath()
+context.restoreGState()
+context.saveGState()
+context.addPath(outline)
 context.clip()
-let areaGradient = CGGradient(
-    colorsSpace: colorSpace,
-    colors: [
-        CGColor(red: 0.24, green: 0.83, blue: 0.65, alpha: 0.55),
-        CGColor(red: 0.31, green: 0.66, blue: 1.0, alpha: 0.0),
-    ] as CFArray,
-    locations: [0, 1]
-)!
-context.drawLinearGradient(
-    areaGradient,
-    start: CGPoint(x: 512, y: chartRect.minY),
-    end: CGPoint(x: 512, y: chartRect.maxY),
-    options: []
-)
+context.drawLinearGradient(gradient([color(0.045, 0.16, 0.22), color(0.025, 0.055, 0.085)]),
+                           start: CGPoint(x: 250, y: 924), end: CGPoint(x: 740, y: 100), options: [])
+context.drawRadialGradient(gradient([color(0.15, 0.85, 0.70, 0.25), color(0.04, 0.24, 0.26, 0)]),
+                           startCenter: CGPoint(x: 225, y: 870), startRadius: 0,
+                           endCenter: CGPoint(x: 225, y: 870), endRadius: 830, options: [])
 context.restoreGState()
 
-let linePath = CGMutablePath()
-for (index, value) in values.enumerated() {
-    let p = point(index, value)
-    if index == 0 { linePath.move(to: p) } else { linePath.addLine(to: p) }
-}
-context.addPath(linePath)
-context.setStrokeColor(CGColor(red: 0.34, green: 0.80, blue: 0.98, alpha: 1))
-context.setLineWidth(30)
-context.setLineJoin(.round)
+// An inset rim catches light without competing with the symbol at small sizes.
+context.addPath(outline)
+context.setLineWidth(3)
+context.setStrokeColor(color(0.58, 0.92, 0.89, 0.25))
+context.strokePath()
+let inner = plate.insetBy(dx: 8, dy: 8)
+context.addPath(CGPath(roundedRect: inner, cornerWidth: 176, cornerHeight: 176, transform: nil))
+context.setLineWidth(2)
+context.setStrokeColor(color(1, 1, 1, 0.055))
+context.strokePath()
+
+let pulse = CGMutablePath()
+let points: [CGPoint] = [
+    CGPoint(x: 234, y: 550), CGPoint(x: 330, y: 550),
+    CGPoint(x: 425, y: 332), CGPoint(x: 585, y: 712),
+    CGPoint(x: 680, y: 490), CGPoint(x: 790, y: 490),
+]
+pulse.addLines(between: points)
+context.saveGState()
+context.setShadow(offset: .zero, blur: 30, color: color(0.17, 1, 0.78, 0.45))
+context.addPath(pulse)
 context.setLineCap(.round)
+context.setLineJoin(.round)
+context.setLineWidth(62)
+context.setStrokeColor(color(0.35, 0.94, 0.79))
 context.strokePath()
-
-let lastPoint = point(values.count - 1, values.last!)
-context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
-context.fillEllipse(in: CGRect(x: lastPoint.x - 30, y: lastPoint.y - 30, width: 60, height: 60))
-context.setStrokeColor(CGColor(red: 0.34, green: 0.80, blue: 0.98, alpha: 1))
-context.setLineWidth(14)
-context.strokeEllipse(in: CGRect(x: lastPoint.x - 30, y: lastPoint.y - 30, width: 60, height: 60))
-
-context.addPath(rounded)
-context.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.10))
-context.setLineWidth(6)
-context.strokePath()
+context.restoreGState()
+let stroke = pulse.copy(strokingWithWidth: 62, lineCap: .round, lineJoin: .round, miterLimit: 10)
+context.saveGState()
+context.addPath(stroke)
+context.clip()
+context.drawLinearGradient(gradient([color(0.34, 0.86, 0.92), color(0.79, 1, 0.90), color(0.25, 0.91, 0.66)]),
+                           start: CGPoint(x: 220, y: 700), end: CGPoint(x: 810, y: 360), options: [])
+context.restoreGState()
 
 guard let image = context.makeImage(),
-      let destination = CGImageDestinationCreateWithURL(
-        URL(fileURLWithPath: output) as CFURL,
-        UTType.png.identifier as CFString, 1, nil
-      )
-else {
-    fatalError("cannot write image")
-}
+      let destination = CGImageDestinationCreateWithURL(URL(fileURLWithPath: output) as CFURL,
+                                                        UTType.png.identifier as CFString, 1, nil)
+else { fatalError("Cannot write icon") }
 CGImageDestinationAddImage(destination, image, nil)
-CGImageDestinationFinalize(destination)
+guard CGImageDestinationFinalize(destination) else { fatalError("Cannot save icon") }
 print("wrote \(output)")
