@@ -1,0 +1,7 @@
+.build/
+DerivedData/
+*.xcodeproj
+.DS_Store
+build/
+*.o
+*.dSYM
