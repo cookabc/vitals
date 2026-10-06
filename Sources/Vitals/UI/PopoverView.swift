@@ -55,7 +55,7 @@ struct PopoverView: View {
                 .padding(10)
             }
         }
-        .frame(width: 352, height: 560)
+        .frame(width: 352, height: 475)
     }
 
     private func toggle(_ id: CardID) {
@@ -453,7 +453,8 @@ struct ProcessesCard: View {
                         Text(Units.gigabytes(Int64(process.residentBytes)))
                             .foregroundStyle(.secondary)
                         Text("\(process.cpuPercent, format: .number.precision(.fractionLength(1)))%")
-                            .frame(width: 46, alignment: .trailing)
+                            .lineLimit(1)
+                            .frame(width: 50, alignment: .trailing)
                             .foregroundStyle(VitalsTheme.loadColor(process.cpuPercent))
                     }
                     .font(.caption2)

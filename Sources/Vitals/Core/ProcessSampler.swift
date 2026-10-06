@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 
 struct RawProcess {
-    let userTime: UInt64 // 累计用户态 CPU 时间，微秒
+    let userTime: UInt64 // 累计用户态 CPU 时间，纳秒
     let systemTime: UInt64
     let residentBytes: UInt64
     let name: String
@@ -51,7 +51,7 @@ enum ProcessSampler {
             guard let previous = old[pid] else { continue }
             let busy = Double(current.userTime &- previous.userTime)
                   + Double(current.systemTime &- previous.systemTime)
-            let cpuPercent = busy / (interval * 1_000_000) * 100
+            let cpuPercent = busy / (interval * 1_000_000_000) * 100
             guard cpuPercent > 0.1 else { continue }
             samples.append(ProcessSample(pid: pid, name: current.name, cpuPercent: cpuPercent, residentBytes: current.residentBytes))
         }

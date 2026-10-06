@@ -76,8 +76,8 @@ import Testing
         2: RawProcess(userTime: 0, systemTime: 0, residentBytes: 1, name: "b"),
     ]
     let new: [pid_t: RawProcess] = [
-        1: RawProcess(userTime: 1_000_000, systemTime: 0, residentBytes: 1, name: "a"),
-        2: RawProcess(userTime: 200_000, systemTime: 0, residentBytes: 1, name: "b"),
+        1: RawProcess(userTime: 1_000_000_000, systemTime: 0, residentBytes: 1, name: "a"),
+        2: RawProcess(userTime: 200_000_000, systemTime: 0, residentBytes: 1, name: "b"),
     ]
     let top = ProcessSampler.topProcesses(old: old, new: new, interval: 1)
     #expect(top.map(\.pid) == [1, 2])
