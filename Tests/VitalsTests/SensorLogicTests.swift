@@ -104,3 +104,79 @@ import Testing
     #expect(Units.speed(0) == "0 B/s")
     #expect(Units.speed(1_500_000).hasSuffix("/s"))
 }
+
+@Test func cpuBreakdownSeparatesUserSystemAndIdle() {
+    let old = CPUTicks(user: [100], system: [100], idle: [100], nice: [10])
+    let new = CPUTicks(user: [120], system: [130], idle: [145], nice: [15])
+    let parts = CPUMath.breakdown(old: old, new: new)
+    #expect(parts == CPUBreakdown(user: 25, system: 30, idle: 45))
+}
+
+@Test func cpuMathRejectsMismatchedArraysAndCounterReset() {
+    let old = CPUTicks(user: [100], system: [100], idle: [100], nice: [0])
+    #expect(CPUMath.totalPercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0])) == nil)
+    #expect(CPUMath.perCorePercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0])).isEmpty)
+    #expect(CPUMath.breakdown(old: old, new: CPUTicks(user: [1], system: [1], idle: [1], nice: [0])) == nil)
+}
+
+@Test func diskRatesAggregateMatchedDevicesAndIgnoreHotPlug() {
+    let old: [UInt64: DiskCounters] = [
+        1: DiskCounters(readBytes: 100, writtenBytes: 100, reads: 10, writes: 10),
+        2: DiskCounters(readBytes: 200, writtenBytes: 200, reads: 20, writes: 20),
+        3: DiskCounters(readBytes: 9999, writtenBytes: 9999, reads: 90, writes: 90),
+    ]
+    let new: [UInt64: DiskCounters] = [
+        1: DiskCounters(readBytes: 300, writtenBytes: 500, reads: 14, writes: 18),
+        2: DiskCounters(readBytes: 600, writtenBytes: 800, reads: 24, writes: 24),
+        4: DiskCounters(readBytes: 900_000, writtenBytes: 900_000, reads: 90, writes: 90),
+    ]
+    #expect(DiskMath.activity(old: old, new: new, interval: 2) ==
+            DiskActivity(readRate: 300, writeRate: 500, readsPerSecond: 4, writesPerSecond: 6))
+}
+
+@Test func diskRatesDistinguishIdleUnavailableAndReset() {
+    let values: [UInt64: DiskCounters] = [1: DiskCounters(readBytes: 100, writtenBytes: 100, reads: 10, writes: 10)]
+    let reset: [UInt64: DiskCounters] = [1: DiskCounters(readBytes: 10, writtenBytes: 10, reads: 1, writes: 1)]
+    #expect(DiskMath.activity(old: values, new: values, interval: 1)?.readRate == 0)
+    #expect(DiskMath.activity(old: values, new: reset, interval: 1) == nil)
+    #expect(DiskMath.activity(old: [:], new: values, interval: 1) == nil)
+    #expect(DiskMath.activity(old: values, new: values, interval: 0) == nil)
+    #expect(DiskMath.activity(old: values, new: values, interval: .nan) == nil)
+}
+
+@Test func swapSamplerReadsBinaryKernelStructure() throws {
+    let swap = try #require(Samplers.readSwap())
+    #expect(swap.total >= 0)
+    #expect(swap.used >= 0)
+    #expect(swap.free >= 0)
+    #expect(swap.used + swap.free == swap.total)
+}
+
+@Test func memorySamplerPartitionsPhysicalMemory() throws {
+    let memory = try #require(Samplers.readMemory())
+    #expect(memory.used + memory.available == Int64(ProcessInfo.processInfo.physicalMemory))
+    #expect(memory.used >= memory.wired + memory.compressed)
+    #expect(memory.cached >= 0)
+}
+
+@Test func loadAverageReturnsThreeFiniteValues() throws {
+    let values = try #require(Samplers.readLoadAverage())
+    #expect(values.count == 3)
+    #expect(values.allSatisfy { $0.isFinite && $0 >= 0 })
+}
+
+@Test func processTimeConvertsMachTicksToNanoseconds() {
+    #expect(ProcessSampler.nanoseconds(24_000_000, numerator: 125, denominator: 3) == 1_000_000_000)
+    #expect(ProcessSampler.nanoseconds(1_000_000_000, numerator: 1, denominator: 1) == 1_000_000_000)
+    let old: [pid_t: RawProcess] = [1: RawProcess(userTime: 1_000, systemTime: 1_000, residentBytes: 1, name: "old")]
+    let reset: [pid_t: RawProcess] = [1: RawProcess(userTime: 0, systemTime: 0, residentBytes: 1, name: "new")]
+    #expect(ProcessSampler.topProcesses(old: old, new: reset, interval: 1).isEmpty)
+}
+
+@Test func pressureFlagsDoNotUseKernelInternalEnum() {
+    #expect(MemoryPressure(rawValue: 1) == .normal)
+    #expect(MemoryPressure(rawValue: 2) == .warning)
+    #expect(MemoryPressure(rawValue: 4) == .critical)
+    #expect(MemoryPressure(rawValue: 0) == nil)
+    #expect(MemoryPressure(rawValue: 99) == nil)
+}

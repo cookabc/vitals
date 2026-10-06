@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import IOKit
 
 /// 底层系统采样：mach / getifaddrs / sysctl。全部为同步纯函数，仅在主线程调用。
 enum Samplers {
@@ -8,6 +9,8 @@ enum Samplers {
         let wired: Int64
         let compressed: Int64
         let available: Int64
+        let cached: Int64
+        let free: Int64
     }
 
     // MARK: - CPU
@@ -45,24 +48,37 @@ enum Samplers {
         guard kr == KERN_SUCCESS else { return nil }
         let pageSize = Int64(sysconf(_SC_PAGESIZE))
         let wired = Int64(stats.wire_count) * pageSize
-        let active = Int64(stats.active_count) * pageSize
         let compressed = Int64(stats.compressor_page_count) * pageSize
         let free = Int64(stats.free_count) * pageSize
-        let inactive = Int64(stats.inactive_count) * pageSize
+        let app = max(0, Int64(stats.internal_page_count) - Int64(stats.purgeable_count)) * pageSize
+        let total = Int64(ProcessInfo.processInfo.physicalMemory)
+        let used = min(total, app + wired + compressed)
         return MemoryStats(
-            used: active + wired + compressed,
-            wired: wired,
-            compressed: compressed,
-            available: free + inactive
+            used: used, wired: wired, compressed: compressed, available: total - used,
+            cached: (Int64(stats.external_page_count) + Int64(stats.purgeable_count)) * pageSize,
+            free: free
         )
     }
 
     static func readSwap() -> (total: Int64, used: Int64, free: Int64)? {
-        var buffer = [CChar](repeating: 0, count: 256)
-        var size = buffer.count
-        guard sysctlbyname("vm.swapusage", &buffer, &size, nil, 0) == 0 else { return nil }
-        let text = String(cString: buffer)
-        return SwapUsageParser.parse(text)
+        var usage = xsw_usage()
+        var size = MemoryLayout<xsw_usage>.stride
+        guard sysctlbyname("vm.swapusage", &usage, &size, nil, 0) == 0,
+              size == MemoryLayout<xsw_usage>.stride else { return nil }
+        return (Int64(clamping: usage.xsu_total), Int64(clamping: usage.xsu_used), Int64(clamping: usage.xsu_avail))
+    }
+
+    static func readMemoryPressure() -> MemoryPressure? {
+        var value: Int32 = 0
+        var size = MemoryLayout<Int32>.size
+        guard sysctlbyname("kern.memorystatus_vm_pressure_level", &value, &size, nil, 0) == 0 else { return nil }
+        return MemoryPressure(rawValue: Int(value))
+    }
+
+    static func readLoadAverage() -> [Double]? {
+        var values = [Double](repeating: 0, count: 3)
+        guard getloadavg(&values, 3) == 3 else { return nil }
+        return values
     }
 
     // MARK: - Network
@@ -107,5 +123,30 @@ enum Samplers {
               let free = values.volumeAvailableCapacityForImportantUsage
         else { return nil }
         return (Int64(total), free)
+    }
+}
+
+
+extension Samplers {
+    /// IOBlockStorageDriver owns cumulative per-device counters. Includes mounted disk images.
+    static func readDiskCounters() -> [UInt64: DiskCounters]? {
+        guard let matching = IOServiceMatching("IOBlockStorageDriver") else { return nil }
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { return nil }
+        defer { IOObjectRelease(iterator) }
+        var counters: [UInt64: DiskCounters] = [:]
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            var id: UInt64 = 0
+            guard IORegistryEntryGetRegistryEntryID(service, &id) == KERN_SUCCESS,
+                  let statistics = IORegistryEntryCreateCFProperty(service, "Statistics" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String: Any],
+                  let read = statistics["Bytes (Read)"] as? NSNumber,
+                  let write = statistics["Bytes (Write)"] as? NSNumber,
+                  let reads = statistics["Operations (Read)"] as? NSNumber,
+                  let writes = statistics["Operations (Write)"] as? NSNumber else { continue }
+            counters[id] = DiskCounters(readBytes: read.uint64Value, writtenBytes: write.uint64Value,
+                                        reads: reads.uint64Value, writes: writes.uint64Value)
+        }
+        return counters.isEmpty ? nil : counters
     }
 }

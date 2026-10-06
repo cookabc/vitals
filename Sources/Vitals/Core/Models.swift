@@ -39,33 +39,12 @@ struct NetSnapshot: Equatable {
 /// 纯函数，便于单元测试。
 enum CPUMath {
     static func totalPercent(old: CPUTicks, new: CPUTicks) -> Double? {
-        guard old.user.count == new.user.count,
-              old.user.count == new.system.count,
-              old.user.count == new.idle.count,
-              old.user.count == new.nice.count,
-              !old.user.isEmpty
-        else { return nil }
-        var busy: Double = 0
-        var total: Double = 0
-        for i in old.user.indices {
-            let du = Double(new.user[i] &- old.user[i])
-            let ds = Double(new.system[i] &- old.system[i])
-            let di = Double(new.idle[i] &- old.idle[i])
-            let dn = Double(new.nice[i] &- old.nice[i])
-            let dt = du + ds + di + dn
-            guard dt > 0 else { continue }
-            busy += du + ds + dn
-            total += dt
-        }
-        return total > 0 ? (busy / total) * 100 : nil
+        guard let parts = breakdown(old: old, new: new) else { return nil }
+        return parts.user + parts.system
     }
 
     static func perCorePercent(old: CPUTicks, new: CPUTicks) -> [Double] {
-        guard old.user.count == new.user.count,
-              old.user.count == new.system.count,
-              old.user.count == new.idle.count,
-              old.user.count == new.nice.count
-        else { return [] }
+        guard breakdown(old: old, new: new) != nil else { return [] }
         return old.user.indices.map { i in
             let du = Double(new.user[i] &- old.user[i])
             let ds = Double(new.system[i] &- old.system[i])
@@ -110,5 +89,80 @@ enum SwapUsageParser {
         }
         guard let total = values["total"], let used = values["used"], let free = values["free"] else { return nil }
         return (total, used, free)
+    }
+}
+
+
+struct CPUBreakdown: Equatable {
+    let user: Double
+    let system: Double
+    let idle: Double
+}
+
+extension CPUMath {
+    static func breakdown(old: CPUTicks, new: CPUTicks) -> CPUBreakdown? {
+        let count = old.user.count
+        guard count > 0, [old.system, old.idle, old.nice, new.user, new.system, new.idle, new.nice]
+            .allSatisfy({ $0.count == count }) else { return nil }
+        var user = 0.0, system = 0.0, idle = 0.0
+        for i in 0..<count {
+            guard new.user[i] >= old.user[i], new.system[i] >= old.system[i],
+                  new.idle[i] >= old.idle[i], new.nice[i] >= old.nice[i] else { return nil }
+            user += Double(new.user[i] - old.user[i]) + Double(new.nice[i] - old.nice[i])
+            system += Double(new.system[i] - old.system[i])
+            idle += Double(new.idle[i] - old.idle[i])
+        }
+        let total = user + system + idle
+        guard total > 0 else { return nil }
+        return CPUBreakdown(user: user / total * 100, system: system / total * 100, idle: idle / total * 100)
+    }
+}
+
+// The sysctl returns dispatch pressure flags (1 / 2 / 4), not the kernel's internal 0...4 enum.
+enum MemoryPressure: Int {
+    case normal = 1, warning = 2, critical = 4
+
+    var title: String {
+        switch self {
+        case .normal: "正常"
+        case .warning: "偏高"
+        case .critical: "紧张"
+        }
+    }
+}
+
+struct DiskCounters: Equatable {
+    let readBytes: UInt64
+    let writtenBytes: UInt64
+    let reads: UInt64
+    let writes: UInt64
+}
+
+struct DiskActivity: Equatable {
+    let readRate: Double
+    let writeRate: Double
+    let readsPerSecond: Double
+    let writesPerSecond: Double
+}
+
+enum DiskMath {
+    /// Match stable registry IDs before taking deltas; hot-plugged and reset devices need a fresh baseline.
+    static func activity(old: [UInt64: DiskCounters], new: [UInt64: DiskCounters], interval: Double) -> DiskActivity? {
+        guard interval.isFinite, interval > 0 else { return nil }
+        var read = 0.0, write = 0.0, reads = 0.0, writes = 0.0
+        var matched = false
+        for (id, current) in new {
+            guard let previous = old[id], current.readBytes >= previous.readBytes,
+                  current.writtenBytes >= previous.writtenBytes,
+                  current.reads >= previous.reads, current.writes >= previous.writes else { continue }
+            matched = true
+            read += Double(current.readBytes - previous.readBytes)
+            write += Double(current.writtenBytes - previous.writtenBytes)
+            reads += Double(current.reads - previous.reads)
+            writes += Double(current.writes - previous.writes)
+        }
+        guard matched else { return nil }
+        return DiskActivity(readRate: read / interval, writeRate: write / interval,
+                            readsPerSecond: reads / interval, writesPerSecond: writes / interval)
     }
 }

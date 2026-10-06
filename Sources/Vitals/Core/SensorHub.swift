@@ -9,13 +9,17 @@ import UserNotifications
 final class SensorHub {
     static private(set) var shared: SensorHub?
 
-    private static let logger = Logger(subsystem: "com.cookabc.vitals", category: "sensors")
+    nonisolated private static let logger = Logger(subsystem: "com.cookabc.vitals", category: "sensors")
     static let historyCapacity = 120
 
     // CPU
     private(set) var cpuTotal: Double = 0
     private(set) var cpuPerCore: [Double] = []
     private(set) var cpuHistory: [TimedSample] = []
+
+    private(set) var cpuBreakdown: CPUBreakdown?
+    private(set) var loadAverage: [Double]?
+    var uptime: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
     // 内存
     private(set) var memoryUsed: Int64 = 0
@@ -25,6 +29,11 @@ final class SensorHub {
     private(set) var memoryTotal: Int64
     private(set) var swapUsed: Int64 = 0
     private(set) var swapTotal: Int64 = 0
+
+    private(set) var memoryPressure: MemoryPressure?
+    private(set) var memoryCached: Int64 = 0
+    private(set) var memoryFree: Int64 = 0
+    private(set) var swapAvailable = false
 
     // 网络
     private(set) var netDown: Double = 0
@@ -38,6 +47,13 @@ final class SensorHub {
     var diskUsedFraction: Double {
         diskTotal > 0 ? Double(diskTotal - diskFree) / Double(diskTotal) : 0
     }
+
+    private(set) var diskActivity: DiskActivity?
+    private(set) var diskActivityUnavailable = false
+    private(set) var diskReadHistory: [TimedSample] = []
+    private(set) var diskWriteHistory: [TimedSample] = []
+    private var lastDiskCounters: [UInt64: DiskCounters]?
+    private var lastDiskAt: TimeInterval?
 
     // 电池与热状态
     private(set) var battery: BatteryInfo?
@@ -72,15 +88,26 @@ final class SensorHub {
         tickOnce()
         loop = Task { [weak self] in
             while !Task.isCancelled {
-                let interval = await self?.samplingInterval() ?? 1
+                let interval = self?.samplingInterval() ?? 1
                 try? await Task.sleep(for: .seconds(interval))
-                await self?.tickOnce()
+                self?.tickOnce()
             }
         }
     }
 
     func togglePause() {
         isPaused.toggle()
+        if !isPaused {
+            // Establish fresh rate baselines after a pause rather than averaging across the paused time.
+            lastTicks = nil
+            lastNet = nil
+            lastDiskCounters = nil
+            lastDiskAt = nil
+            lastProcesses = nil
+            lastProcessAt = .distantPast
+            diskActivity = nil
+            tickOnce()
+        }
     }
 
     func requestNotificationAuthorization() async -> Bool {
@@ -117,6 +144,7 @@ final class SensorHub {
         if let ticks = Samplers.readCPUTicks() {
             if let old = lastTicks, let total = CPUMath.totalPercent(old: old, new: ticks) {
                 cpuTotal = max(0, min(100, total))
+                cpuBreakdown = CPUMath.breakdown(old: old, new: ticks)
                 cpuPerCore = CPUMath.perCorePercent(old: old, new: ticks)
                 cpuHistory.append(TimedSample(t: now, v: cpuTotal))
                 if cpuHistory.count > Self.historyCapacity {
@@ -131,8 +159,14 @@ final class SensorHub {
             memoryWired = memory.wired
             memoryCompressed = memory.compressed
             memoryAvailable = memory.available
+            memoryCached = memory.cached
+            memoryFree = memory.free
         }
-        if let swap = Samplers.readSwap() {
+        memoryPressure = Samplers.readMemoryPressure()
+        loadAverage = Samplers.readLoadAverage()
+        let swap = Samplers.readSwap()
+        swapAvailable = swap != nil
+        if let swap {
             swapTotal = swap.total
             swapUsed = swap.used
         }
@@ -153,6 +187,7 @@ final class SensorHub {
             lastNet = snapshot
         }
 
+        sampleDiskActivity(now: now)
         if tickCount % 30 == 1 { refreshDisk() }
         if tickCount % 5 == 0 { refreshBattery() }
         let processesEnabled = UserDefaults.standard.object(forKey: "showProcesses") as? Bool ?? true
@@ -168,6 +203,39 @@ final class SensorHub {
 
         lastUpdated = now
         runAlertChecks(now: now)
+    }
+
+    private func sampleDiskActivity(now: Date) {
+        guard UserDefaults.standard.object(forKey: "showDiskActivity") as? Bool ?? true else {
+            lastDiskCounters = nil
+            lastDiskAt = nil
+            diskActivity = nil
+            return
+        }
+        let at = ProcessInfo.processInfo.systemUptime
+        guard let counters = Samplers.readDiskCounters() else {
+            diskActivityUnavailable = true
+            diskActivity = nil
+            lastDiskCounters = nil
+            lastDiskAt = nil
+            return
+        }
+        diskActivityUnavailable = false
+        if let previous = lastDiskCounters, let previousAt = lastDiskAt, at - previousAt < 10 {
+            diskActivity = DiskMath.activity(old: previous, new: counters, interval: at - previousAt)
+            if let activity = diskActivity {
+                diskReadHistory.append(TimedSample(t: now, v: activity.readRate))
+                diskWriteHistory.append(TimedSample(t: now, v: activity.writeRate))
+                if diskReadHistory.count > Self.historyCapacity {
+                    diskReadHistory.removeFirst(diskReadHistory.count - Self.historyCapacity)
+                    diskWriteHistory.removeFirst(diskWriteHistory.count - Self.historyCapacity)
+                }
+            }
+        } else {
+            diskActivity = nil
+        }
+        lastDiskCounters = counters
+        lastDiskAt = at
     }
 
     private func runAlertChecks(now: Date) {

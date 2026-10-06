@@ -12,6 +12,18 @@ struct RawProcess {
 /// 再用 proc_pid_rusage 取 CPU/RSS 基线，做差值得到每个进程的瞬时占用。
 /// 注意：不要把内核 copyout 类调用直接对准 Swift 数组缓冲，这里统一走 sysctl 约定。
 enum ProcessSampler {
+    private static let timebase: mach_timebase_info_data_t = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return info
+    }()
+
+    static func nanoseconds(_ ticks: UInt64, numerator: UInt32, denominator: UInt32) -> UInt64 {
+        guard denominator > 0 else { return 0 }
+        // Convert before storing RawProcess, whose contract is nanoseconds on every architecture.
+        return UInt64(Double(ticks) * Double(numerator) / Double(denominator))
+    }
+
     static func snapshot() -> [pid_t: RawProcess] {
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL]
         var size = 0
@@ -35,8 +47,8 @@ enum ProcessSampler {
                 String(cString: raw.baseAddress!.assumingMemoryBound(to: CChar.self))
             }
             result[pid] = RawProcess(
-                userTime: usage.ri_user_time,
-                systemTime: usage.ri_system_time,
+                userTime: nanoseconds(usage.ri_user_time, numerator: timebase.numer, denominator: timebase.denom),
+                systemTime: nanoseconds(usage.ri_system_time, numerator: timebase.numer, denominator: timebase.denom),
                 residentBytes: usage.ri_resident_size,
                 name: name.isEmpty ? "PID \(pid)" : name
             )
@@ -48,7 +60,8 @@ enum ProcessSampler {
         guard interval > 0 else { return [] }
         var samples: [ProcessSample] = []
         for (pid, current) in new {
-            guard let previous = old[pid] else { continue }
+            guard let previous = old[pid], current.userTime >= previous.userTime,
+                  current.systemTime >= previous.systemTime else { continue }
             let busy = Double(current.userTime &- previous.userTime)
                   + Double(current.systemTime &- previous.systemTime)
             let cpuPercent = busy / (interval * 1_000_000_000) * 100
