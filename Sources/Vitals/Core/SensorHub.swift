@@ -119,6 +119,9 @@ final class SensorHub {
                 cpuTotal = max(0, min(100, total))
                 cpuPerCore = CPUMath.perCorePercent(old: old, new: ticks)
                 cpuHistory.append(TimedSample(t: now, v: cpuTotal))
+                if cpuHistory.count > Self.historyCapacity {
+                    cpuHistory.removeFirst(cpuHistory.count - Self.historyCapacity)
+                }
             }
             lastTicks = ticks
         }
@@ -138,10 +141,14 @@ final class SensorHub {
             let snapshot = NetSnapshot(rx: totals.rx, tx: totals.tx, at: now)
             if let old = lastNet, now.timeIntervalSince(old.at) > 0.2 {
                 let dt = now.timeIntervalSince(old.at)
-                netDown = max(0, Double(totals.rx &- old.rx) / dt)
-                netUp = max(0, Double(totals.tx &- old.tx) / dt)
+                netDown = Double(NetMath.maskedDelta(old: old.rx, new: totals.rx)) / dt
+                netUp = Double(NetMath.maskedDelta(old: old.tx, new: totals.tx)) / dt
                 netDownHistory.append(TimedSample(t: now, v: netDown))
                 netUpHistory.append(TimedSample(t: now, v: netUp))
+                if netDownHistory.count > Self.historyCapacity {
+                    netDownHistory.removeFirst(netDownHistory.count - Self.historyCapacity)
+                    netUpHistory.removeFirst(netUpHistory.count - Self.historyCapacity)
+                }
             }
             lastNet = snapshot
         }

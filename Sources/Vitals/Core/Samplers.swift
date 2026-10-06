@@ -68,6 +68,8 @@ enum Samplers {
     // MARK: - Network
 
     /// 排除回环与无线旁路接口，聚合所有在用接口的字节计数。
+    /// 注意：if_data 的 ifi_ibytes/ifi_obytes 是 32 位计数器，超过 4.29GB 会回绕；
+    /// 聚合值的差值运算必须经 NetMath.maskedDelta 做模 2^32 处理。
     private static let excludedInterfacePrefixes = ["lo", "awdl", "llw", "bridge", "ap"]
 
     static func readNetTotals() -> (rx: UInt64, tx: UInt64)? {

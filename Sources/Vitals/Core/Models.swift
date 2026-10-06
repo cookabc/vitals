@@ -77,6 +77,16 @@ enum CPUMath {
     }
 }
 
+/// 网络字节计数差值：getifaddrs 的 ifi_ibytes/ifi_obytes 是 32 位计数器，超过 4.29GB 回绕到 0，
+/// 直接相减会得到巨大的无符号下溢值。对回绕值做 32 位模减即可还原真实增量；
+/// 差值超过 2^31 视为接口计数器被重置（接口 down/up），返回新值避免一次性假尖峰。
+enum NetMath {
+    static func maskedDelta(old: UInt64, new: UInt64) -> UInt64 {
+        let delta = (new &- old) & 0xFFFF_FFFF
+        return delta <= 0x7FFF_FFFF ? delta : new & 0xFFFF_FFFF
+    }
+}
+
 /// 解析 `sysctl vm.swapusage` 输出，如 "total = 2048.00M used = 512.00M free = 1536.00M"。
 enum SwapUsageParser {
     static func parse(_ text: String) -> (total: Int64, used: Int64, free: Int64)? {

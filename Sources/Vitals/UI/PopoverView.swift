@@ -56,8 +56,7 @@ struct PopoverView: View {
                 .padding(12)
             }
         }
-        .frame(width: 352)
-        .frame(maxHeight: 680)
+        .frame(width: 352, height: 620)
     }
 
     private func toggle(_ id: CardID) {

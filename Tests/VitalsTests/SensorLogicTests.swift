@@ -85,6 +85,21 @@ import Testing
     #expect(top[0].name == "a")
 }
 
+@Test func netMathHandlesNormalDelta() {
+    #expect(NetMath.maskedDelta(old: 100, new: 350) == 250)
+}
+
+@Test func netMathHandlesWrapAround() {
+    // 32 位计数器从 3_000_000_000 回绕到 500_000_000
+    let expected = 500_000_000 + (4_294_967_296 - 3_000_000_000)
+    #expect(NetMath.maskedDelta(old: 3_000_000_000, new: 500_000_000) == expected)
+}
+
+@Test func netMathTreatsHugeBackwardJumpAsReset() {
+    // 差值超过 2^31（单次采样不可能的真实流量）视为计数器重置，返回新值
+    #expect(NetMath.maskedDelta(old: 2_100_000_000, new: 1_000_000) == 1_000_000)
+}
+
 @Test func speedFormatting() {
     #expect(Units.speed(0) == "0 B/s")
     #expect(Units.speed(1_500_000).hasSuffix("/s"))
