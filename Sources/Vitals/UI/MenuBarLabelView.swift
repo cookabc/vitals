@@ -38,20 +38,19 @@ struct MenuBarLabelView: View {
                 ))
             }
             if mode.showsText {
-                Text(hub.cpuTotal, format: .number.precision(.fractionLength(0)))
+                Text("\(Int(hub.cpuTotal.rounded()))%")
                     .monospacedDigit()
-                    .frame(minWidth: 28, alignment: .trailing)
+                    .frame(width: 36, alignment: .trailing)
             }
             if mode == .icon {
-                Image(systemName: "cpu")
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(VitalsTheme.loadColor(hub.cpuTotal))
+                Image(nsImage: VitalsMark.image)
             }
             if hub.isPaused {
                 Image(systemName: "pause.fill")
             }
         }
         .fixedSize()
+        .help("Vitals · CPU \(Int(hub.cpuTotal.rounded()))% · \(hub.isPaused ? "已暂停" : "监控中")")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("CPU \(Int(hub.cpuTotal))%，\(hub.isPaused ? "已暂停" : "监控中")")
     }

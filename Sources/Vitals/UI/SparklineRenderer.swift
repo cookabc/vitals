@@ -24,7 +24,7 @@ enum SparklineRenderer {
                 )
             }
 
-            var areaPath = CGMutablePath()
+            let areaPath = CGMutablePath()
             areaPath.move(to: CGPoint(x: rect.minX, y: rect.minY + 1))
             for index in samples.indices { areaPath.addLine(to: point(index)) }
             areaPath.addLine(to: CGPoint(x: rect.maxX, y: rect.minY + 1))
@@ -46,7 +46,7 @@ enum SparklineRenderer {
             )
             context.restoreGState()
 
-            var linePath = CGMutablePath()
+            let linePath = CGMutablePath()
             for index in samples.indices {
                 let p = point(index)
                 if index == 0 { linePath.move(to: p) } else { linePath.addLine(to: p) }
@@ -70,4 +70,29 @@ enum SparklineRenderer {
         image.isTemplate = false
         return image
     }
+}
+
+/// Vector template image stays legible on either menu bar appearance, including selection.
+enum VitalsMark {
+    static let image: NSImage = {
+        let image = NSImage(size: NSSize(width: 20, height: 18), flipped: false) { _ in
+            guard let context = NSGraphicsContext.current?.cgContext else { return true }
+            let path = CGMutablePath()
+            path.addLines(between: [
+                CGPoint(x: 1.5, y: 10), CGPoint(x: 4.5, y: 10),
+                CGPoint(x: 7.3, y: 3), CGPoint(x: 12.2, y: 15),
+                CGPoint(x: 15.1, y: 8), CGPoint(x: 18.5, y: 8),
+            ])
+            context.addPath(path)
+            context.setLineWidth(1.8)
+            context.setLineCap(.round)
+            context.setLineJoin(.round)
+            context.setStrokeColor(NSColor.black.cgColor)
+            context.strokePath()
+            return true
+        }
+        image.isTemplate = true
+        image.accessibilityDescription = "Vitals"
+        return image
+    }()
 }

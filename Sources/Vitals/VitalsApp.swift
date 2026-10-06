@@ -10,12 +10,16 @@ final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
         guard CommandLine.arguments.contains("--debug-panel") else { return }
         guard let hub = SensorHub.shared else { return }
         let window = NSWindow(
-            contentRect: NSRect(x: 100, y: 300, width: 352, height: 475),
+            contentRect: NSRect(x: 100, y: 300, width: VitalsTheme.panelWidth, height: VitalsTheme.panelHeight),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
         window.title = "Vitals Debug Panel"
+        window.isReleasedWhenClosed = false
+        if CommandLine.arguments.contains("--debug-dark") {
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
         window.contentView = NSHostingView(rootView: PopoverView(hub: hub))
         window.makeKeyAndOrderFront(nil)
     }

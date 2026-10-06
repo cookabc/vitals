@@ -2,15 +2,46 @@ import Charts
 import SwiftUI
 
 enum CardID: String, Hashable {
-    case cpu, memory, network, disk, processes
+    case cpu, memory, network, disk, processes, system, diskActivity, cores
 }
 
 extension View {
-    func cardGlass(_ id: CardID, namespace: Namespace.ID, action: @escaping () -> Void) -> some View {
-        glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    func cardGlass(_ id: CardID, namespace: Namespace.ID) -> some View {
+        padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .glassEffectID(id, in: namespace)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .onTapGesture(perform: action)
+    }
+}
+
+struct CardHeading: View {
+    var title: String
+    var symbol: String
+
+    var body: some View {
+        Label(title, systemImage: symbol)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(.secondary)
+    }
+}
+
+struct DisclosureButton: View {
+    var title: String
+    var expanded: Bool
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(expanded ? "收起" : "展开") \(title) 详情")
+        .accessibilityValue(expanded ? "已展开" : "已收起")
+        .help(expanded ? "收起详情" : "展开详情")
     }
 }
 
@@ -19,6 +50,7 @@ struct PopoverView: View {
 
     @Namespace private var glassNamespace
     @State private var expandedCard: CardID?
+    @State private var page = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @AppStorage("showNetwork") private var showNetwork = true
@@ -26,36 +58,66 @@ struct PopoverView: View {
     @AppStorage("showBattery") private var showBattery = true
     @AppStorage("showProcesses") private var showProcesses = true
 
+    @AppStorage("showDiskActivity") private var showDiskActivity = true
+
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            GlassEffectContainer(spacing: 10) {
-                VStack(spacing: 10) {
-                    header
-                    CPUCard(hub: hub, expanded: expandedCard == .cpu)
-                        .cardGlass(.cpu, namespace: glassNamespace) { toggle(.cpu) }
-                    MemoryCard(hub: hub)
-                        .cardGlass(.memory, namespace: glassNamespace) { toggle(.memory) }
-                    if showNetwork || showDisk {
-                        HStack(alignment: .top, spacing: 10) {
-                            if showNetwork {
-                                NetworkCard(hub: hub, expanded: expandedCard == .network)
-                                    .cardGlass(.network, namespace: glassNamespace) { toggle(.network) }
+        VStack(spacing: 0) {
+            header.padding(.horizontal, 14).padding(.vertical, 12)
+            Picker("监控页面", selection: $page) {
+                Text("概览").tag(0)
+                Text("系统").tag(1)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
+            ScrollView(.vertical) {
+                GlassEffectContainer(spacing: 10) {
+                    VStack(spacing: 10) {
+                        if page == 0 {
+                            CPUCard(hub: hub, expanded: expandedCard == .cpu) { toggle(.cpu) }
+                                .cardGlass(.cpu, namespace: glassNamespace)
+                            MemoryCard(hub: hub, expanded: expandedCard == .memory) { toggle(.memory) }
+                                .cardGlass(.memory, namespace: glassNamespace)
+                            if showNetwork || showDisk {
+                                HStack(alignment: .top, spacing: 10) {
+                                    if showNetwork {
+                                        NetworkCard(hub: hub, expanded: expandedCard == .network) { toggle(.network) }
+                                            .frame(height: expandedCard == .network ? 150 : 104)
+                                            .cardGlass(.network, namespace: glassNamespace)
+                                    }
+                                    if showDisk {
+                                        DiskCard(hub: hub)
+                                            .frame(height: showNetwork && expandedCard == .network ? 150 : 104)
+                                            .cardGlass(.disk, namespace: glassNamespace)
+                                    }
+                                }
                             }
-                            if showDisk {
-                                DiskCard(hub: hub)
-                                    .cardGlass(.disk, namespace: glassNamespace) { toggle(.disk) }
+                            if showProcesses {
+                                ProcessesCard(hub: hub)
+                                    .cardGlass(.processes, namespace: glassNamespace)
                             }
+                        } else {
+                            SystemStatusCard(hub: hub)
+                                .cardGlass(.system, namespace: glassNamespace)
+                            if showDiskActivity {
+                                DiskActivityCard(hub: hub)
+                                    .cardGlass(.diskActivity, namespace: glassNamespace)
+                            }
+                            CoreDetailCard(hub: hub)
+                                .cardGlass(.cores, namespace: glassNamespace)
                         }
                     }
-                    if showProcesses {
-                        ProcessesCard(hub: hub)
-                            .cardGlass(.processes, namespace: glassNamespace) { toggle(.processes) }
-                    }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
                 }
-                .padding(10)
             }
+            .scrollIndicators(.automatic)
+            .id(page)
         }
-        .frame(width: 352, height: 475)
+        .frame(width: VitalsTheme.panelWidth, height: VitalsTheme.panelHeight)
     }
 
     private func toggle(_ id: CardID) {
@@ -70,9 +132,14 @@ struct PopoverView: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Image(systemName: "waveform.path.ecg")
+            Image(nsImage: VitalsMark.image)
                 .foregroundStyle(Color.accentColor.gradient)
-            Text("Vitals").font(.headline)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Vitals").font(.system(size: 14, weight: .semibold))
+                Text(hub.isPaused ? "采样已暂停" : "每 \(hub.samplingIntervalText) 秒更新")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
             if showBattery, let battery = hub.battery {
                 BatteryBadge(battery: battery)
             }
@@ -86,22 +153,24 @@ struct PopoverView: View {
             if hub.thermalState != .nominal {
                 Image(systemName: VitalsTheme.thermalSymbol(hub.thermalState))
                     .foregroundStyle(VitalsTheme.thermalColor(hub.thermalState))
-                    .symbolEffect(.pulse, isActive: hub.thermalState == .serious || hub.thermalState == .critical)
+                    .symbolEffect(.pulse, isActive: !reduceMotion && (hub.thermalState == .serious || hub.thermalState == .critical))
                     .help("热状态：\(thermalText)")
             }
             Button {
                 hub.togglePause()
             } label: {
                 Label(hub.isPaused ? "继续" : "暂停", systemImage: hub.isPaused ? "play.fill" : "pause.fill")
-                    .symbolEffect(.bounce, value: hub.isPaused)
+                    .symbolEffect(.bounce, options: .nonRepeating, isActive: !reduceMotion && hub.isPaused)
             }
             .buttonStyle(.glass)
+            .controlSize(.small)
             .labelStyle(.iconOnly)
             .help(hub.isPaused ? "继续采样" : "暂停采样")
             SettingsLink {
                 Label("设置", systemImage: "gearshape")
             }
             .buttonStyle(.glass)
+            .controlSize(.small)
             .labelStyle(.iconOnly)
             .help("设置")
         }
@@ -163,37 +232,41 @@ struct BatteryBadge: View {
 struct CPUCard: View {
     var hub: SensorHub
     var expanded: Bool
+    var onToggle: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Label("CPU", systemImage: "cpu")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                CardHeading(title: "CPU", symbol: "cpu")
                 Spacer()
-                Text(hub.cpuTotal, format: .number.precision(.fractionLength(0)))
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(VitalsTheme.loadColor(hub.cpuTotal))
-                    .contentTransition(.numericText(value: hub.cpuTotal))
-                    .animation(.snappy(duration: 0.35), value: hub.cpuTotal)
-                Text("%")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Text(hub.cpuTotal, format: .number.precision(.fractionLength(0)))
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(VitalsTheme.loadColor(hub.cpuTotal))
+                        .contentTransition(.numericText(value: hub.cpuTotal))
+                        .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: hub.cpuTotal)
+                    Text("%")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+                DisclosureButton(title: "CPU", expanded: expanded, action: onToggle)
             }
-            chart.frame(height: expanded ? 88 : 60)
-            coreBars.frame(height: 22)
+            chart.frame(height: expanded ? 88 : 40)
+            coreBars.frame(height: 14)
             if expanded {
                 HStack(spacing: 14) {
-                    stat("核心数", "\(hub.cpuPerCore.count)")
-                    stat("2 分钟峰值", "\(Int((hub.cpuHistory.map(\.v).max() ?? 0).rounded()))%")
-                    stat("负载", loadText)
+                    stat("用户", hub.cpuBreakdown.map { String(format: "%.1f%%", $0.user) } ?? "—")
+                    stat("系统", hub.cpuBreakdown.map { String(format: "%.1f%%", $0.system) } ?? "—")
+                    stat("空闲", hub.cpuBreakdown.map { String(format: "%.1f%%", $0.idle) } ?? "—")
+                    stat("峰值", "\(Int((hub.cpuHistory.map(\.v).max() ?? 0).rounded()))%")
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             }
         }
-        .animation(.snappy(duration: 0.3), value: expanded)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3), value: expanded)
     }
 
     private var loadText: String {
@@ -208,16 +281,18 @@ struct CPUCard: View {
     private var chart: some View {
         Chart(Array(hub.cpuHistory.enumerated()), id: \.offset) { _, sample in
             AreaMark(x: .value("时间", sample.t), y: .value("占用", sample.v))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.linear)
                 .foregroundStyle(VitalsTheme.areaGradient(hub.cpuTotal))
             LineMark(x: .value("时间", sample.t), y: .value("占用", sample.v))
-                .interpolationMethod(.catmullRom)
+                .interpolationMethod(.linear)
                 .foregroundStyle(VitalsTheme.loadColor(hub.cpuTotal))
                 .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartYScale(domain: 0...100)
+        .clipped()
+        .accessibilityLabel("CPU 占用历史")
     }
 
     private var coreBars: some View {
@@ -227,6 +302,8 @@ struct CPUCard: View {
             let gap: CGFloat = 2
             let barWidth = (size.width - gap * CGFloat(cores.count - 1)) / CGFloat(cores.count)
             for (index, load) in cores.enumerated() {
+                let track = CGRect(x: CGFloat(index) * (barWidth + gap), y: 0, width: barWidth, height: size.height)
+                context.fill(Path(roundedRect: track, cornerRadius: 2), with: .color(.secondary.opacity(0.10)))
                 let height = max(2, size.height * CGFloat(min(100, load)) / 100)
                 let rect = CGRect(
                     x: CGFloat(index) * (barWidth + gap),
@@ -252,6 +329,9 @@ struct CPUCard: View {
 
 struct MemoryCard: View {
     var hub: SensorHub
+    var expanded: Bool
+    var onToggle: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var total: Int64 {
         hub.memoryTotal > 0 ? hub.memoryTotal : Int64(ProcessInfo.processInfo.physicalMemory)
@@ -264,25 +344,55 @@ struct MemoryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Label("内存", systemImage: "memorychip")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                CardHeading(title: "内存", symbol: "memorychip")
                 Spacer()
                 Text("\(Units.gigabytes(hub.memoryUsed)) / \(Units.gigabytes(total))")
                     .font(.caption.weight(.medium))
                     .monospacedDigit()
                     .contentTransition(.numericText())
-                    .animation(.snappy(duration: 0.35), value: hub.memoryUsed)
+                    .animation(reduceMotion ? nil : .snappy(duration: 0.35), value: hub.memoryUsed)
+                DisclosureButton(title: "内存", expanded: expanded, action: onToggle)
             }
             bar.frame(height: 8)
             legend
-            if hub.swapTotal > 0 {
-                Text("交换内存 \(Units.gigabytes(hub.swapUsed)) / \(Units.gigabytes(hub.swapTotal))")
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.orange)
+            HStack {
+                Label("压力 \(hub.memoryPressure?.title ?? "不可用")", systemImage: "circle.fill")
+                    .foregroundStyle(pressureColor)
+                Spacer()
+                Text(hub.swapAvailable ? "交换 \(Units.gigabytes(hub.swapUsed))" : "交换空间不可用")
+                    .foregroundStyle(.secondary)
+            }
+            .font(.system(size: 10))
+            .monospacedDigit()
+            if expanded {
+                Divider().padding(.vertical, 2)
+                detail("文件缓存", Units.gigabytes(hub.memoryCached))
+                detail("空闲页", Units.gigabytes(hub.memoryFree))
+                detail("交换空间总量", hub.swapAvailable ? Units.gigabytes(hub.swapTotal) : "不可用")
+                Text("压力反映系统的内存紧张程度；占用高不一定意味着压力高。可用量为物理内存减去估算占用，含可回收空间。")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var pressureColor: Color {
+        switch hub.memoryPressure {
+        case .normal: VitalsTheme.loadColor(0)
+        case .warning: .orange
+        case .critical: .red
+        case nil: .secondary
+        }
+    }
+
+    private func detail(_ name: String, _ value: String) -> some View {
+        HStack {
+            Text(name).foregroundStyle(.secondary)
+            Spacer()
+            Text(value).monospacedDigit()
+        }
+        .font(.system(size: 11))
     }
 
     private var segments: [(Color, Double)] {
@@ -298,34 +408,41 @@ struct MemoryCard: View {
 
     private var bar: some View {
         GeometryReader { geo in
-            HStack(spacing: 1) {
+            let sum = segments.reduce(0) { $0 + max(0, $1.1) }
+            HStack(spacing: 0) {
                 ForEach(Array(segments.enumerated()), id: \.offset) { _, segment in
-                    RoundedRectangle(cornerRadius: 1.5)
+                    Rectangle()
                         .fill(segment.0)
-                        .frame(width: max(2, geo.size.width * min(1, segment.1) - 1))
+                        .frame(width: sum > 0 ? geo.size.width * max(0, segment.1) / sum : 0)
                 }
             }
+            .clipShape(Capsule())
         }
         .accessibilityLabel("内存分布")
     }
 
     private var legend: some View {
-        HStack(spacing: 8) {
-            dot(.indigo, "系统 \(Units.gigabytes(hub.memoryWired))")
-            dot(.blue, "应用 \(Units.gigabytes(appMemory))")
-            dot(.orange, "压缩 \(Units.gigabytes(hub.memoryCompressed))")
-            dot(.gray.opacity(0.3), "可用 \(Units.gigabytes(hub.memoryAvailable))")
+        Grid(horizontalSpacing: 16, verticalSpacing: 5) {
+            GridRow {
+                dot(.indigo, "不可分页", hub.memoryWired)
+                dot(.blue, "应用", appMemory)
+            }
+            GridRow {
+                dot(.orange, "压缩", hub.memoryCompressed)
+                dot(.gray.opacity(0.5), "可用", hub.memoryAvailable)
+            }
         }
-        .font(.caption2)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
+        .font(.system(size: 10))
     }
 
-    private func dot(_ color: Color, _ label: String) -> some View {
-        HStack(spacing: 3) {
-            Circle().fill(color).frame(width: 4, height: 4)
-            Text(label)
+    private func dot(_ color: Color, _ label: String, _ bytes: Int64) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(color).frame(width: 5, height: 5)
+            Text(label).foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            Text(Units.gigabytes(bytes)).monospacedDigit()
         }
+        .lineLimit(1)
     }
 }
 
@@ -334,60 +451,65 @@ struct MemoryCard: View {
 struct NetworkCard: View {
     var hub: SensorHub
     var expanded: Bool
+    var onToggle: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Label("网络", systemImage: "network")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            HStack(spacing: 8) {
-                rate(symbol: "arrow.down", value: hub.netDown, isActive: hub.netDown > 512, color: .blue)
-                rate(symbol: "arrow.up", value: hub.netUp, isActive: hub.netUp > 512, color: .orange)
+            HStack {
+                CardHeading(title: "网络", symbol: "network")
                 Spacer(minLength: 0)
+                DisclosureButton(title: "网络", expanded: expanded, action: onToggle)
             }
-            chart.frame(height: expanded ? 64 : 44)
+            rate(symbol: "arrow.down", value: hub.netDown, color: .blue)
+            rate(symbol: "arrow.up", value: hub.netUp, color: .orange)
+            chart.frame(height: expanded ? 44 : 28)
             if expanded {
-                Text("峰值 ↓\(Units.speed(hub.netDownHistory.map(\.v).max() ?? 0)) ↑\(Units.speed(hub.netUpHistory.map(\.v).max() ?? 0))")
-                    .font(.caption2)
-                    .monospacedDigit()
-                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("峰值 ↓ \(Units.speed(hub.netDownHistory.map(\.v).max() ?? 0))")
+                    Text("峰值 ↑ \(Units.speed(hub.netUpHistory.map(\.v).max() ?? 0))")
+                }
+                .font(.system(size: 9))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .animation(.snappy(duration: 0.3), value: expanded)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    private func rate(symbol: String, value: Double, isActive: Bool, color: Color) -> some View {
-        HStack(spacing: 3) {
+    private func rate(symbol: String, value: Double, color: Color) -> some View {
+        HStack(spacing: 4) {
             Image(systemName: symbol)
-                .font(.caption2)
                 .foregroundStyle(color)
-                .symbolEffect(.variableColor.iterative, isActive: isActive)
+                .symbolEffect(.variableColor.iterative, isActive: !reduceMotion && !hub.isPaused && value > 512)
             Text(Units.speed(value))
                 .monospacedDigit()
+                .lineLimit(1)
                 .contentTransition(.numericText())
         }
-        .font(.caption2)
+        .font(.system(size: 11, weight: .medium))
+        .accessibilityLabel("\(symbol == "arrow.down" ? "下载" : "上传") \(Units.speed(value))")
     }
 
     private var chart: some View {
         Chart {
             ForEach(Array(hub.netDownHistory.enumerated()), id: \.offset) { _, sample in
-                AreaMark(x: .value("时间", sample.t), y: .value("下行", sample.v))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(.blue.opacity(0.30))
+                LineMark(x: .value("时间", sample.t), y: .value("速率", sample.v), series: .value("方向", "下载"))
+                    .foregroundStyle(.blue)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
             }
             ForEach(Array(hub.netUpHistory.enumerated()), id: \.offset) { _, sample in
-                AreaMark(x: .value("时间", sample.t), y: .value("上行", sample.v))
-                    .interpolationMethod(.catmullRom)
-                    .foregroundStyle(.orange.opacity(0.30))
+                LineMark(x: .value("时间", sample.t), y: .value("速率", sample.v), series: .value("方向", "上传"))
+                    .foregroundStyle(.orange)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5))
             }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
+        .chartYScale(domain: 0...max(1, (hub.netDownHistory + hub.netUpHistory).map(\.v).max() ?? 1))
+        .clipped()
+        .accessibilityLabel("网络上传与下载历史")
     }
 }
 
@@ -398,28 +520,30 @@ struct DiskCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Label("磁盘", systemImage: "internaldrive")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("\(Int((hub.diskUsedFraction * 100).rounded()))%")
-                    .font(.caption.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(VitalsTheme.loadColor(hub.diskUsedFraction * 100))
+            CardHeading(title: "磁盘", symbol: "internaldrive")
+                .frame(height: 22, alignment: .leading)
+            Text("\(Int((hub.diskUsedFraction * 100).rounded()))%")
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(VitalsTheme.loadColor(hub.diskUsedFraction * 100))
+            GeometryReader { geo in
+                Capsule().fill(.secondary.opacity(0.12))
+                    .overlay(alignment: .leading) {
+                        Capsule().fill(VitalsTheme.loadColor(hub.diskUsedFraction * 100))
+                            .frame(width: geo.size.width * max(0, min(1, hub.diskUsedFraction)))
+                    }
             }
-            ProgressView(value: hub.diskUsedFraction)
-                .tint(VitalsTheme.loadColor(hub.diskUsedFraction * 100))
-            HStack {
+            .frame(height: 5)
+            .accessibilityLabel("磁盘已用 \(Int((hub.diskUsedFraction * 100).rounded()))%")
+            VStack(alignment: .leading, spacing: 3) {
                 Text("可用 \(Units.gigabytes(hub.diskFree))")
-                Spacer()
-                Text("共 \(Units.gigabytes(hub.diskTotal))")
+                Text("共 \(Units.gigabytes(hub.diskTotal))").foregroundStyle(.secondary)
             }
-            .font(.caption2)
+            .font(.system(size: 10))
             .monospacedDigit()
-            .foregroundStyle(.secondary)
+            .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
@@ -429,36 +553,206 @@ struct ProcessesCard: View {
     var hub: SensorHub
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("进程", systemImage: "square.stack.3d.up")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                CardHeading(title: "进程", symbol: "square.stack.3d.up")
                 Spacer()
                 Text("CPU 前 5")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .help("单个逻辑核心满载为 100%，多线程进程可超过 100%。")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
             if hub.topProcesses.isEmpty {
-                Text("采样中…")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Image(systemName: "ellipsis")
+                    Text(hub.isPaused ? "采样已暂停" : "正在采集进程数据…")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, minHeight: 92)
             } else {
-                ForEach(hub.topProcesses.prefix(5)) { process in
-                    HStack(spacing: 6) {
-                        Text(process.name)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                        Text(Units.gigabytes(Int64(process.residentBytes)))
-                            .foregroundStyle(.secondary)
-                        Text("\(process.cpuPercent, format: .number.precision(.fractionLength(1)))%")
-                            .lineLimit(1)
-                            .frame(width: 50, alignment: .trailing)
-                            .foregroundStyle(VitalsTheme.loadColor(process.cpuPercent))
+                VStack(spacing: 0) {
+                    ForEach(hub.topProcesses.prefix(5)) { process in
+                        HStack(spacing: 8) {
+                            Text(process.name)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                                .help(process.name)
+                            Spacer(minLength: 0)
+                            Text(Units.gigabytes(Int64(process.residentBytes)))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 56, alignment: .trailing)
+                            Text("\(process.cpuPercent, format: .number.precision(.fractionLength(1)))%")
+                                .frame(width: 56, alignment: .trailing)
+                                .foregroundStyle(process.cpuPercent >= 60 ? VitalsTheme.loadColor(process.cpuPercent) : .primary)
+                        }
+                        .font(.system(size: 11))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .frame(height: 20)
                     }
-                    .font(.caption2)
-                    .monospacedDigit()
+                }
+            }
+        }
+    }
+}
+
+
+// MARK: - 系统详情
+
+struct SystemStatusCard: View {
+    var hub: SensorHub
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                CardHeading(title: "系统负载", symbol: "gauge.with.dots.needle.50percent")
+                Spacer()
+                Text("\(hub.cpuPerCore.count) 个逻辑核心")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 0) {
+                ForEach(0..<3) { index in
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(["1 分钟", "5 分钟", "15 分钟"][index])
+                            .font(.system(size: 10)).foregroundStyle(.secondary)
+                        Text(hub.loadAverage.map { String(format: "%.2f", $0[index]) } ?? "—")
+                            .font(.system(size: 24, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            Text("平均负载不是 CPU 百分比，需结合逻辑核心数判断。")
+                .font(.system(size: 10)).foregroundStyle(.secondary)
+            Divider()
+            HStack {
+                Label("热状态：\(thermalText)", systemImage: VitalsTheme.thermalSymbol(hub.thermalState))
+                    .foregroundStyle(VitalsTheme.thermalColor(hub.thermalState))
+                Spacer()
+                Text("已运行 \(uptimeText)").foregroundStyle(.secondary)
+            }
+            .font(.system(size: 10))
+            if hub.isLowPowerMode {
+                Label("低电量模式已开启", systemImage: "leaf")
+                    .font(.system(size: 10)).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var uptimeText: String {
+        let minutes = Int(hub.uptime / 60)
+        if minutes >= 1440 { return "\(minutes / 1440) 天 \(minutes / 60 % 24) 小时" }
+        return "\(minutes / 60) 小时 \(minutes % 60) 分钟"
+    }
+
+    private var thermalText: String {
+        switch hub.thermalState {
+        case .nominal: "正常"
+        case .fair: "略温"
+        case .serious: "偏高"
+        case .critical: "过高"
+        @unknown default: "未知"
+        }
+    }
+}
+
+struct DiskActivityCard: View {
+    var hub: SensorHub
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                CardHeading(title: "磁盘读写", symbol: "internaldrive")
+                Spacer()
+                Text("所有磁盘 · 含映像")
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+            HStack {
+                metric("读取", rate: hub.diskActivity?.readRate, color: .blue)
+                metric("写入", rate: hub.diskActivity?.writeRate, color: .orange)
+            }
+            Chart {
+                ForEach(Array(hub.diskReadHistory.enumerated()), id: \.offset) { _, sample in
+                    LineMark(x: .value("时间", sample.t), y: .value("速率", sample.v), series: .value("方向", "读取"))
+                        .foregroundStyle(.blue)
+                }
+                ForEach(Array(hub.diskWriteHistory.enumerated()), id: \.offset) { _, sample in
+                    LineMark(x: .value("时间", sample.t), y: .value("速率", sample.v), series: .value("方向", "写入"))
+                        .foregroundStyle(.orange)
+                }
+            }
+            .chartXAxis(.hidden).chartYAxis(.hidden)
+            .chartYScale(domain: 0...max(1, (hub.diskReadHistory + hub.diskWriteHistory).map(\.v).max() ?? 1))
+            .frame(height: 48)
+            .clipped()
+            .accessibilityLabel("磁盘读取与写入速率历史")
+            if let activity = hub.diskActivity {
+                HStack {
+                    Text("读 \(activity.readsPerSecond, format: .number.precision(.fractionLength(0))) 次/秒")
+                    Spacer()
+                    Text("写 \(activity.writesPerSecond, format: .number.precision(.fractionLength(0))) 次/秒")
+                }
+                .font(.system(size: 10)).monospacedDigit().foregroundStyle(.secondary)
+            } else {
+                Text(hub.diskActivityUnavailable ? "设备未提供读写计数。" : (hub.isPaused ? "采样已暂停。" : "正在建立采样基线…"))
+                    .font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func metric(_ title: String, rate: Double?, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label(title, systemImage: title == "读取" ? "arrow.down" : "arrow.up")
+                .font(.system(size: 10)).foregroundStyle(color)
+            Text(rate.map(Units.speed) ?? "—")
+                .font(.system(size: 19, weight: .semibold, design: .rounded))
+                .monospacedDigit().lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+struct CoreDetailCard: View {
+    var hub: SensorHub
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                CardHeading(title: "逐核占用", symbol: "cpu")
+                Spacer()
+                Text("逻辑核心").font(.system(size: 10)).foregroundStyle(.secondary)
+            }
+            if let parts = hub.cpuBreakdown {
+                HStack {
+                    Text("用户 \(parts.user, format: .number.precision(.fractionLength(1)))%")
+                    Spacer()
+                    Text("系统 \(parts.system, format: .number.precision(.fractionLength(1)))%")
+                    Spacer()
+                    Text("空闲 \(parts.idle, format: .number.precision(.fractionLength(1)))%")
+                }
+                .font(.system(size: 10)).monospacedDigit().foregroundStyle(.secondary)
+            }
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                ForEach(Array(hub.cpuPerCore.enumerated()), id: \.offset) { index, load in
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("核心 \(index + 1)").foregroundStyle(.secondary)
+                            Spacer()
+                            Text("\(load, format: .number.precision(.fractionLength(1)))%")
+                                .monospacedDigit()
+                        }
+                        .font(.system(size: 10))
+                        GeometryReader { geo in
+                            Capsule().fill(.secondary.opacity(0.12))
+                                .overlay(alignment: .leading) {
+                                    Capsule().fill(VitalsTheme.loadColor(load))
+                                        .frame(width: geo.size.width * min(100, max(0, load)) / 100)
+                                }
+                        }
+                        .frame(height: 4)
+                    }
+                    .padding(6)
                 }
             }
         }
