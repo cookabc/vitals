@@ -11,6 +11,7 @@ struct PixelDashboardView: View {
 
     var hub: SensorHub
     @State private var details = false
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("showCPU") private var showCPU = true
     @AppStorage("showGPU") private var showGPU = true
     @AppStorage("showMemory") private var showMemory = true
@@ -56,7 +57,11 @@ struct PixelDashboardView: View {
                 Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
             }
             .accessibilityLabel(hub.isPaused ? tr("action.resume") : tr("action.pause"))
-            SettingsLink { Image(systemName: "slider.horizontal.3") }
+            Button {
+                SettingsPresenter.shared.present(using: openSettings)
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+            }
             .help(tr("action.settings"))
             .accessibilityLabel(tr("action.settings"))
         }
