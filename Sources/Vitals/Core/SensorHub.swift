@@ -21,6 +21,11 @@ final class SensorHub {
     private(set) var loadAverage: [Double]?
     var uptime: TimeInterval { ProcessInfo.processInfo.systemUptime }
 
+    // GPU: IOKit driver counters; optional fields preserve capability gaps.
+    private(set) var gpuDevices: [GPUStats] = []
+    private(set) var gpuHistory: [TimedSample] = []
+    var gpu: GPUStats? { gpuDevices.max { ($0.utilization ?? -1) < ($1.utilization ?? -1) } }
+
     // 内存
     private(set) var memoryUsed: Int64 = 0
     private(set) var memoryWired: Int64 = 0
@@ -187,6 +192,20 @@ final class SensorHub {
             lastNet = snapshot
         }
 
+        if UserDefaults.standard.object(forKey: "showGPU") as? Bool ?? true {
+            let previousID = gpu?.id
+            gpuDevices = GPUSampler.read()
+            if previousID != gpu?.id { gpuHistory.removeAll(keepingCapacity: true) }
+            if let value = gpu?.utilization {
+                gpuHistory.append(TimedSample(t: now, v: value))
+                if gpuHistory.count > Self.historyCapacity { gpuHistory.removeFirst(gpuHistory.count - Self.historyCapacity) }
+            } else {
+                gpuHistory.removeAll(keepingCapacity: true)
+            }
+        } else {
+            gpuDevices = []
+            gpuHistory.removeAll(keepingCapacity: true)
+        }
         sampleDiskActivity(now: now)
         if tickCount % 30 == 1 { refreshDisk() }
         if tickCount % 5 == 0 { refreshBattery() }

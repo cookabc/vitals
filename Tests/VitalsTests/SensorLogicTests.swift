@@ -180,3 +180,20 @@ import Testing
     #expect(MemoryPressure(rawValue: 0) == nil)
     #expect(MemoryPressure(rawValue: 99) == nil)
 }
+
+@Test func gpuPreservesZeroAndMissingValues() {
+    let gpu = GPUStats.parse(id: 1, statistics: ["Device Utilization %": 0, "In use system memory": 1024])
+    #expect(gpu.utilization == 0)
+    #expect(gpu.memoryInUse == 1024)
+    #expect(gpu.renderer == nil)
+    #expect(gpu.memoryAllocated == nil)
+}
+
+@Test func gpuRejectsInvalidDriverValues() {
+    let gpu = GPUStats.parse(id: 1, statistics: ["Device Utilization %": 101, "Renderer Utilization %": -1,
+                                               "Tiler Utilization %": Double.nan, "Alloc system memory": -99])
+    #expect(gpu.utilization == nil)
+    #expect(gpu.renderer == nil)
+    #expect(gpu.tiler == nil)
+    #expect(gpu.memoryAllocated == nil)
+}
