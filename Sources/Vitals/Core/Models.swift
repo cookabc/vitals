@@ -124,9 +124,9 @@ enum MemoryPressure: Int {
 
     var title: String {
         switch self {
-        case .normal: "正常"
-        case .warning: "偏高"
-        case .critical: "紧张"
+        case .normal: L10n.text("state.normal")
+        case .warning: L10n.text("state.high")
+        case .critical: L10n.text("state.critical")
         }
     }
 }

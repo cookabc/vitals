@@ -197,3 +197,39 @@ import Testing
     #expect(gpu.tiler == nil)
     #expect(gpu.memoryAllocated == nil)
 }
+
+@Test func localizationResolvesExplicitAndSystemLanguages() {
+    #expect(AppLanguage.system.resolved(preferredLanguages: ["en-CN", "zh-Hans-CN"]) == .english)
+    #expect(AppLanguage.system.resolved(preferredLanguages: ["zh-Hans-CN"]) == .simplifiedChinese)
+    #expect(AppLanguage.english.resolved(preferredLanguages: ["zh-Hans-CN"]) == .english)
+    #expect(AppLanguage.system.resolved(preferredLanguages: ["fr-FR"]) == .english)
+    #expect(AppLanguage.system.resolved(preferredLanguages: ["fr-FR", "zh-Hans-CN"]) == .simplifiedChinese)
+}
+
+@Test func localizationResourcesMatchAndContainNoEnglishChineseMix() throws {
+    func table(_ language: String) throws -> [String: String] {
+        let path = try #require(Bundle.main.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language))
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: String])
+    }
+    let en = try table("en")
+    let zh = try table("zh-Hans")
+    #expect(Set(en.keys) == Set(zh.keys))
+    #expect(en.values.allSatisfy { $0.range(of: #"\p{Han}"#, options: .regularExpression) == nil })
+    #expect(L10n.text("settings.title", language: .english) == "Settings")
+    #expect(L10n.text("settings.title", language: .simplifiedChinese) == "设置")
+    for key in en.keys {
+        let format = try NSRegularExpression(pattern: #"%(?:\d+\$)?(?:llu|ld|d|@|f|%)"#)
+        func placeholders(_ value: String) -> [String] {
+            let string = value as NSString
+            return format.matches(in: value, range: NSRange(location: 0, length: string.length)).map { string.substring(with: $0.range) }
+        }
+        #expect(placeholders(en[key]!) == placeholders(zh[key]!))
+    }
+}
+
+@Test func localizationFormatsValues() {
+    #expect(L10n.text("cpu.coreNumber", language: .english, arguments: [3]) == "Core 3")
+    #expect(L10n.text("cpu.coreNumber", language: .simplifiedChinese, arguments: [3]) == "核心 3")
+    #expect(L10n.text("battery.level", language: .english, arguments: [80]) == "Battery 80%")
+}

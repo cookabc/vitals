@@ -24,8 +24,8 @@ struct AlertEngine {
             if let since = cpuHighSince, now.timeIntervalSince(since) >= sustainSeconds {
                 events.append(AlertEvent(
                     id: "cpu",
-                    title: "CPU 占用持续偏高",
-                    body: "CPU 已连续 \(Int(sustainSeconds)) 秒超过 \(Int(cpuThreshold))%（当前 \(Int(cpuPercent))%）"
+                    title: L10n.text("alert.cpu.title"),
+                    body: L10n.text("alert.cpu.body", arguments: [Int(cpuThreshold), Int(sustainSeconds), Int(cpuPercent)])
                 ))
                 cpuHighSince = nil
             }
@@ -36,16 +36,16 @@ struct AlertEngine {
         if diskUsedFraction * 100 >= diskThreshold {
             events.append(AlertEvent(
                 id: "disk",
-                title: "磁盘空间不足",
-                body: "系统盘已使用 \(Int((diskUsedFraction * 100).rounded()))%"
+                title: L10n.text("alert.disk.title"),
+                body: L10n.text("alert.disk.body", arguments: [Int((diskUsedFraction * 100).rounded())])
             ))
         }
 
         switch thermalState {
         case .serious:
-            events.append(AlertEvent(id: "thermal-serious", title: "系统温度偏高", body: "机器正在发热，性能可能受限"))
+            events.append(AlertEvent(id: "thermal-serious", title: L10n.text("alert.thermal.serious.title"), body: L10n.text("alert.thermal.serious.body")))
         case .critical:
-            events.append(AlertEvent(id: "thermal-critical", title: "系统温度过高", body: "温度达到临界值，建议降低负载"))
+            events.append(AlertEvent(id: "thermal-critical", title: L10n.text("alert.thermal.critical.title"), body: L10n.text("alert.thermal.critical.body")))
         default:
             break
         }
