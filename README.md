@@ -2,6 +2,10 @@
 
 Vitals is a macOS system monitor that lives only in the menu bar. The menu bar icon shows a live CPU mini-curve and usage percentage; clicking it opens a dark pixel dashboard with CPU, memory, network, disk, battery and process details. No Dock icon, no main window.
 
+<p align="center">
+  <img src="docs/images/overview.png" width="720" alt="Vitals overview: CPU, GPU, memory, network, disk and system on a pixel dashboard">
+</p>
+
 Requires macOS 26.0 or later. Developed with Xcode 27 / macOS 27 SDK.
 
 ## Features
@@ -120,3 +124,7 @@ Style reference: [pixel system monitor panel](https://hub.v2core.com/p/c7e22d4d2
 - Disk throughput is based on deltas of the devices' cumulative counters, matched by stable device ID and then summed. [Apple's description of the bytes-read counter](https://developer.apple.com/documentation/iokit/kioblockstoragedriverstatisticsbytesreadkey).
 
 Module toggles control both the overview and details. Turning off GPU / disk I/O also stops the corresponding sampling; CPU / memory keep supplying the menu bar and alerts. With multiple GPUs the overview shows the busiest device, and switching devices rebuilds GPU history while details list every device. Performance / efficiency core counts only show the totals the system reports and do not infer per-core numbering.
+
+## License
+
+Vitals is released under the [MIT License](LICENSE).
