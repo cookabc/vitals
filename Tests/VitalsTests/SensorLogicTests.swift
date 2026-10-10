@@ -228,8 +228,10 @@ import Testing
     }
 }
 
-@Test func localizationFormatsValues() {
+@Test @MainActor func localizationFormatsValuesAndSupportsChineseFallback() {
     #expect(L10n.text("cpu.coreNumber", language: .english, arguments: [3]) == "Core 3")
     #expect(L10n.text("cpu.coreNumber", language: .simplifiedChinese, arguments: [3]) == "核心 3")
     #expect(L10n.text("battery.level", language: .english, arguments: [80]) == "Battery 80%")
+    #expect(PixelText.supportsBitmap("GPU 80%"))
+    #expect(!PixelText.supportsBitmap("设置"))
 }

@@ -12,17 +12,23 @@ enum MenubarMode: Int, CaseIterable, Identifiable {
     var showsGraph: Bool { self == .graph || self == .graphAndText }
     var showsText: Bool { self == .text || self == .graphAndText }
 
-    var title: String {
+    var titleKey: String {
         switch self {
-        case .graph: "图形"
-        case .text: "数字"
-        case .graphAndText: "图形+数字"
-        case .icon: "图标"
+        case .graph: "mode.graph"
+        case .text: "mode.text"
+        case .graphAndText: "mode.graphAndText"
+        case .icon: "mode.icon"
         }
     }
 }
 
 struct MenuBarLabelView: View {
+    @Environment(\.appLanguage) private var language
+
+    private func tr(_ key: String, _ arguments: CVarArg...) -> String {
+        L10n.text(key, language: language, arguments: arguments)
+    }
+
     var hub: SensorHub
 
     @AppStorage("menubarMode") private var modeRaw = MenubarMode.graphAndText.rawValue
@@ -50,8 +56,8 @@ struct MenuBarLabelView: View {
             }
         }
         .fixedSize()
-        .help("Vitals · CPU \(Int(hub.cpuTotal.rounded()))% · \(hub.isPaused ? "已暂停" : "监控中")")
+        .help(tr("menu.status", Int(hub.cpuTotal.rounded()), tr(hub.isPaused ? "state.paused" : "state.monitoring")))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("CPU \(Int(hub.cpuTotal))%，\(hub.isPaused ? "已暂停" : "监控中")")
+        .accessibilityLabel(tr("menu.status", Int(hub.cpuTotal.rounded()), tr(hub.isPaused ? "state.paused" : "state.monitoring")))
     }
 }

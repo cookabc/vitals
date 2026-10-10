@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 enum VitalsTheme {
-    static let panelWidth: CGFloat = 400
-    static let panelHeight: CGFloat = 650
+    static let panelWidth: CGFloat = 680
+    static let panelHeight: CGFloat = 500
 
     private static let normalLoad = Color(
         light: NSColor(red: 0.10, green: 0.52, blue: 0.33, alpha: 1),

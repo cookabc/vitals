@@ -15,12 +15,15 @@ final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Vitals Debug Panel"
+        window.title = L10n.text("window.debug")
         window.isReleasedWhenClosed = false
         if CommandLine.arguments.contains("--debug-dark") {
             NSApp.appearance = NSAppearance(named: .darkAqua)
         }
-        window.contentView = NSHostingView(rootView: PopoverView(hub: hub))
+        window.contentView = NSHostingView(rootView: LocalizedContent {
+            PopoverView(hub: hub)
+                .background(SettingsWindowRegistration(titleKey: "window.debug", managesSettings: false))
+        })
         window.makeKeyAndOrderFront(nil)
     }
 }
@@ -44,12 +47,12 @@ struct VitalsApp: App {
         MenuBarExtra {
             PopoverView(hub: hub)
         } label: {
-            MenuBarLabelView(hub: hub)
+            LocalizedContent { MenuBarLabelView(hub: hub) }
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            SettingsView()
+            LocalizedContent { SettingsView() }
         }
     }
 }
