@@ -1,40 +1,40 @@
-# Vitals — 菜单栏系统监控
+# Vitals — Menu Bar System Monitor
 
-Vitals 是一个只驻留在 macOS 菜单栏的系统监控工具。菜单栏图标实时显示 CPU 迷你曲线与占用百分比，点击展开深色像素仪表盘查看 CPU、内存、网络、磁盘、电池和进程明细。无 Dock 图标、无主窗口。
+Vitals is a macOS system monitor that lives only in the menu bar. The menu bar icon shows a live CPU mini-curve and usage percentage; clicking it opens a dark pixel dashboard with CPU, memory, network, disk, battery and process details. No Dock icon, no main window.
 
-系统要求：macOS 26.0 及以上。开发环境为 Xcode 27 / macOS 27 SDK。
+Requires macOS 26.0 or later. Developed with Xcode 27 / macOS 27 SDK.
 
-## 功能
+## Features
 
-- 应用图标使用像素 V 形脉冲，菜单栏保留清晰的单色 V 形标记；菜单栏为自适应浅深色的单色矢量图标
-- 菜单栏四种显示模式：图形、数字、图形+数字、图标；曲线颜色随负载变化（绿 / 橙 / 红），暂停时叠加暂停符号
-- CPU：总占用、逐核心柱状图、最近 120 次采样的点阵历史曲线，主屏显示分段逐核柱条及性能核 / 能效核数量；DETAILS 入口提供历史曲线、平均负载和逐核明细
-- GPU：主屏显示驱动报告的占用率、历史、使用中 / 已分配内存；明细增加渲染与分块占用，缺失字段显示 N/A
-- 内存：已用 / 总量、不可分页-应用-压缩-可用分段条、系统内存压力、交换空间；展开查看文件缓存、空闲页和交换总量
-- 网络：上下行速率与历史曲线，像素曲线区分上传与下载，明细页保留峰值统计
-- 磁盘：系统盘容量进度条；明细页显示所有可读取块设备（含磁盘映像）的读写速率、读写次数和历史曲线，可在设置中关闭读写采样
-- 系统：1 / 5 / 15 分钟平均负载、逻辑核心数、热状态、运行时间与低电量模式
-- 电池：SYSTEM 区域显示电量、悬停查看充电状态、剩余时间估算（IOPowerSources）；低电量模式标识
-- 进程：明细页显示按 CPU 排序的前 5 个进程，显示占用率与常驻内存（sysctl + libproc 差值采样）
-- 热状态：SYSTEM 区域使用 NORMAL / WARM / HOT / CRITICAL 显示系统热状态
-- 告警：CPU 持续高占用（默认连续 30 秒 ≥ 90%）、磁盘占用、热状态升级时发送系统通知，同一告警 5 分钟冷却
-- 语言：可选择跟随系统、简体中文或 English，主屏、明细、设置、提示和通知同步切换；必要的产品名、进程名和技术缩写保留原文
-- 设置窗口：菜单栏模式、采样间隔（0.5 / 1 / 2 秒）、CPU / GPU / 内存 / 网络 / 磁盘 / 传感器 / 电池 / 进程开关、告警阈值、登录时启动
+- The app icon uses a pixel V-shaped pulse, while the menu bar keeps a crisp monochrome V mark; the menu bar icon is a single-color vector that adapts to light and dark appearances
+- Four menu bar display modes: graph, number, graph + number, and icon; the curve color tracks load (green / orange / red) and a pause symbol overlays it when sampling is paused
+- CPU: total usage, a per-core bar chart, and a dot-matrix history of the last 120 samples; the overview shows segmented per-core bars plus performance / efficiency core counts; the DETAILS entry offers history, load average and a per-core breakdown
+- GPU: the overview shows driver-reported usage, history, and memory in use / allocated; details add renderer and tiler usage, with missing fields shown as N/A
+- Memory: used / total, a wired-apps-compressed-available segment bar, system memory pressure and swap; expand for file cache, free pages and swap total
+- Network: upload and download rates with history, pixel curves distinguishing upload from download, and peak statistics on the details page
+- Disk: startup volume capacity bar; the details page lists every readable block device (including disk images) with read / write rates, operation counts and history, and read/write sampling can be turned off in Settings
+- System: 1 / 5 / 15 minute load average, logical core count, thermal state, uptime and low power mode
+- Battery: the SYSTEM area shows level, hover reveals charging state and estimated time remaining (IOPowerSources); a low power mode marker
+- Processes: the details page lists the top 5 processes by CPU with usage and resident memory (sysctl + libproc delta sampling)
+- Thermal state: the SYSTEM area reports NORMAL / WARM / HOT / CRITICAL
+- Alerts: system notifications for sustained high CPU (30 consecutive seconds at or above 90% by default), disk usage, and thermal state escalation, with a 5 minute cooldown per alert
+- Language: follow the system, Simplified Chinese or English, switching the overview, details, settings, tips and notifications together; necessary product names, process names and technical abbreviations stay as-is
+- Settings window: menu bar mode, sampling interval (0.5 / 1 / 2 s), CPU / GPU / memory / network / disk / sensor / battery / process toggles, alert thresholds, and launch at login
 
-## 系统特性使用清单
+## System features used
 
-| 类别 | API |
+| Category | API |
 | --- | --- |
-| 视觉 | Canvas 像素字形、等距主机插画、分段柱条、点阵曲线，方角边框与固定深色配色 |
-| 视觉 | 主屏、明细与设置使用同一套 PixelSection / PixelSegments / PixelTrace / 像素开关与选项按钮 |
-| 视觉 | Canvas 点阵折线、分段逐核柱图，SF Symbols 用于操作图标 |
-| 逻辑 | `@Observable`（Observation 框架）驱动全部 UI；Swift 6 语言模式严格并发 |
-| 逻辑 | `MenuBarExtra(.window)` 自定义标签与浮窗内容；`openSettings` + 设置窗口激活 |
-| 逻辑 | 采样：mach `host_processor_info` / `host_statistics64`、`getifaddrs`、`sysctl`（vm.swapusage、KERN_PROC_ALL）、`proc_pid_rusage`、`getloadavg`、IOKit 块设备统计、IOPowerSources、`ProcessInfo.thermalState` |
-| 逻辑 | `SMAppService` 登录项、AppIntents（快捷指令「暂停或继续 Vitals 监控」）、UserNotifications 告警 |
-| 逻辑 | 结构化并发采样循环（`Task` + `Task.sleep`）、Swift Testing 单元测试 |
+| Visual | Canvas pixel glyphs, an isometric host illustration, segmented bars, dot-matrix curves, square-cornered borders and a fixed dark palette |
+| Visual | Overview, details and settings share one set of PixelSection / PixelSegments / PixelTrace / pixel toggles and option buttons |
+| Visual | Canvas dot-matrix polylines and segmented per-core bars, with SF Symbols for action icons |
+| Logic | `@Observable` (Observation framework) drives all UI; Swift 6 language mode with strict concurrency |
+| Logic | `MenuBarExtra(.window)` with a custom label and popover content; `openSettings` plus settings window activation |
+| Logic | Sampling: mach `host_processor_info` / `host_statistics64`, `getifaddrs`, `sysctl` (vm.swapusage, KERN_PROC_ALL), `proc_pid_rusage`, `getloadavg`, IOKit block device statistics, IOPowerSources, `ProcessInfo.thermalState` |
+| Logic | `SMAppService` login item, AppIntents (the "Pause or resume Vitals monitoring" shortcut), UserNotifications alerts |
+| Logic | Structured-concurrency sampling loop (`Task` + `Task.sleep`), Swift Testing unit tests |
 
-## 构建与安装
+## Build and install
 
 ```bash
 xcodegen generate
@@ -44,79 +44,79 @@ cp -R .build/DerivedData/Build/Products/Release/Vitals.app /Applications/
 open /Applications/Vitals.app
 ```
 
-测试：
+Tests:
 
 ```bash
 xcodebuild test -project Vitals.xcodeproj -scheme Vitals -destination 'platform=macOS,arch=arm64' \
   -derivedDataPath .build/DerivedData
 ```
 
-App 图标由 `Tools/make_icon.swift` 生成（CoreGraphics 绘制，输出到资产目录后用 sips 缩出全套尺寸）：
+The app icon is generated by `Tools/make_icon.swift` (drawn with CoreGraphics, written to the asset catalog and then scaled to the full set of sizes with sips):
 
 ```bash
 swift Tools/make_icon.swift Sources/Vitals/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png
 ```
 
-## 架构
+## Architecture
 
 ```
 Sources/Vitals/
-  VitalsApp.swift            App 入口：MenuBarExtra(.window) + Settings 场景
+  VitalsApp.swift            App entry: MenuBarExtra(.window) + Settings scene
   Core/
-    SensorHub.swift          @MainActor @Observable 状态机；采样循环与告警调度
-    Samplers.swift           mach / getifaddrs / sysctl / IOKit 底层采样
-    ProcessSampler.swift     sysctl(KERN_PROC_ALL) + proc_pid_rusage 进程采样
-    GPUSampler.swift         IOAccelerator 驱动统计与缺失值校验
-    BatteryKit.swift         IOPowerSources 电池读取
-    AlertEngine.swift        纯逻辑告警引擎（阈值 + 持续时长 + 冷却）
-    Models.swift             CPUTicks / CPUMath / DiskMath 等数据模型与纯函数
-    LaunchAtLogin.swift      SMAppService 封装
-    Localization.swift      语言选择、资源查找与格式化
+    SensorHub.swift          @MainActor @Observable state machine; sampling loop and alert scheduling
+    Samplers.swift           mach / getifaddrs / sysctl / IOKit low-level sampling
+    ProcessSampler.swift     sysctl(KERN_PROC_ALL) + proc_pid_rusage process sampling
+    GPUSampler.swift         IOAccelerator driver statistics and missing-value validation
+    BatteryKit.swift         IOPowerSources battery reads
+    AlertEngine.swift        Pure-logic alert engine (threshold + duration + cooldown)
+    Models.swift             CPUTicks / CPUMath / DiskMath and other models and pure functions
+    LaunchAtLogin.swift      SMAppService wrapper
+    Localization.swift       Language selection, resource lookup and formatting
     Units.swift, Ring.swift
   UI/
-    PopoverView.swift        浮窗入口
-    PixelDashboardView.swift 像素仪表盘、主屏 / 明细导航
-    PixelArt.swift           自绘像素字形与等距主机插画
-    PixelDetailsView.swift   同一套像素样式的完整明细
-    PixelControls.swift      设置与明细共用的像素控件
-    LocalizedContent.swift   跨窗口语言与地区环境
-    MenuBarLabelView.swift   菜单栏标签（四种模式）
-    SparklineRenderer.swift  CoreGraphics 迷你曲线与 V 形矢量标记
-    SettingsView.swift       像素设置页
-    SettingsPresenter.swift  设置窗口激活、首次展示与已有窗口置前
+    PopoverView.swift        Popover entry
+    PixelDashboardView.swift Pixel dashboard, overview / details navigation
+    PixelArt.swift           Hand-drawn pixel glyphs and the isometric host illustration
+    PixelDetailsView.swift   Full details in the same pixel style
+    PixelControls.swift      Pixel controls shared by settings and details
+    LocalizedContent.swift   Cross-window language and locale environment
+    MenuBarLabelView.swift   Menu bar label (four modes)
+    SparklineRenderer.swift  CoreGraphics mini curve and V-shaped vector mark
+    SettingsView.swift       Pixel settings page
+    SettingsPresenter.swift  Settings window activation, first show and bring-existing-to-front
     Theme.swift
   Intents/
     ToggleMonitoringIntent.swift
 ```
 
-采样节奏：CPU / GPU / 内存 / 网络 / 系统负载 / 磁盘读写每个采样间隔刷新一次；电池每 5 个周期、磁盘容量每 30 个周期、进程每 5 秒刷新一次，降低常驻开销。
+Sampling cadence: CPU / GPU / memory / network / system load / disk I/O refresh every sampling interval; battery refreshes every 5 cycles, disk capacity every 30 cycles, and processes every 5 seconds, to keep resident cost down.
 
-## 已知限制
+## Known limitations
 
-- 进程名取自 `kinfo_proc.kp_proc.p_comm`，最长 16 字符，长进程名会被截断
-- 进程 CPU 占用依赖 `proc_pid_rusage`，其他用户的进程可能取不到数据而跳过
-- GPU 数据依赖驱动提供的 IOKit PerformanceStatistics，非稳定的跨机型接口；不可用字段为 N/A，不以 0 代替
-- GPU 使用中 / 已分配内存为驱动计数，与系统内存分类可能重叠，不能相加或推导独立显存
-- 具体温度、风扇转速、时钟频率与功耗未接入可靠数据源，显示 N/A；系统热状态不换算成摄氏度
-- 内存占用为内核页面计数估算，不承诺与活动监视器完全一致；内存压力读取失败时显示「不可用」
-- 磁盘读写为可读取设备合计，包含磁盘映像，不代表单个启动卷；新接入、计数重置和恢复采样时先建立基线，避免假尖峰
-- 像素主机是装饰性示意，不代表当前 Mac 的机壳外观；指示像素随真实 CPU 占用变化
-- 像素主屏和明细不使用持续动画，仅随真实采样更新
+- Process names come from `kinfo_proc.kp_proc.p_comm` and are capped at 16 characters; longer names are truncated
+- Process CPU usage relies on `proc_pid_rusage`, which may return no data for processes owned by other users, so they are skipped
+- GPU data depends on the IOKit PerformanceStatistics a driver provides — not a stable cross-machine interface; unavailable fields are N/A, never 0
+- GPU memory in use / allocated are driver counters that may overlap system memory categories; they cannot be summed or used to derive dedicated VRAM
+- Temperature, fan speed, clock frequency and power draw have no reliable source and show N/A; thermal state is not converted to degrees Celsius
+- Memory usage is an estimate from kernel page counts and is not guaranteed to match Activity Monitor exactly; memory pressure reads that fail show "unavailable"
+- Disk throughput is the sum across readable devices, including disk images, and does not represent a single startup volume; a baseline is established on new attach, counter reset and resumed sampling to avoid false spikes
+- The pixel host is a decorative illustration and does not depict the current Mac's enclosure; its indicator pixels track real CPU usage
+- The pixel overview and details use no continuous animation and update only with real samples
 
-## 视觉走查
+## Visual review
 
-Debug 构建可用 `--debug-panel` 将浮窗内容显示在普通窗口中；附加 `--debug-dark` 检查深色外观。这些入口不包含在 Release 构建中。
+Debug builds accept `--debug-panel` to show the popover content in an ordinary window; add `--debug-dark` to check the dark appearance. These entry points are not part of Release builds.
 
-浮窗尺寸为 680 × 500，采用固定深色像素仪表盘。上部为主机示意、逐核柱条与 GPU 历史，中部为内存分段条，下部为网络、磁盘、系统；进程排行放入明细页。DETAILS 进入可滚动的明细页，MONITOR 返回主屏；暂停和设置始终可访问。
+The popover is 680 × 500 and uses a fixed dark pixel dashboard. The top holds the host illustration, per-core bars and GPU history; the middle is the memory segment bar; the bottom is network, disk and system. The process ranking lives on the details page. DETAILS opens a scrollable details page and MONITOR returns to the overview; pause and settings are always reachable.
 
-风格参考：[像素系统监控面板](https://hub.v2core.com/p/c7e22d4d210af8835c20a4de7734dd7c139ddac335c3689e030e1de4eb6b84c8)。所有图形通过原生 SwiftUI / Canvas 绘制；文案来自 `Resources/en.lproj` 与 `Resources/zh-Hans.lproj`。英文短标题采用像素字形，中文或缺字文本回退到清晰的系统字体。GPU 使用本机驱动报告的真实读数；参考中的功耗、频率与温度读数不复制、不模拟。
+Style reference: [pixel system monitor panel](https://hub.v2core.com/p/c7e22d4d210af8835c20a4de7734dd7c139ddac335c3689e030e1de4eb6b84c8). All graphics are drawn with native SwiftUI / Canvas; copy comes from `Resources/en.lproj` and `Resources/zh-Hans.lproj`. Short English titles use pixel glyphs, while Chinese or missing-glyph text falls back to a crisp system font. GPU figures are real readings reported by the local driver; the power, frequency and temperature figures in the reference are neither copied nor simulated.
 
 
-## 数据口径
+## Data semantics
 
-- `vm.swapusage` 按 `xsw_usage` 二进制结构读取，字段单位为字节。
-- 进程 CPU 时间先按 `mach_timebase_info` 转为纳秒，再按时间差计算；单个逻辑核心满载为 100%，多线程进程可超过 100%。换算依据见 [Apple XNU task.c](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/task.c)。
-- 内存压力 sysctl 返回 dispatch 标志（1 / 2 / 4），不同于内核内部枚举。依据见 [Apple XNU kern_memorystatus_notify.c](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_memorystatus_notify.c)。
-- 磁盘吞吐基于设备累计计数差值，按稳定的设备 ID 匹配后汇总。[Apple 对读取字节计数的说明](https://developer.apple.com/documentation/iokit/kioblockstoragedriverstatisticsbytesreadkey)。
+- `vm.swapusage` is read through the `xsw_usage` binary structure, with fields in bytes.
+- Process CPU time is first converted to nanoseconds via `mach_timebase_info`, then converted through a time delta; one fully used logical core is 100%, and multithreaded processes can exceed 100%. See [Apple XNU task.c](https://github.com/apple-oss-distributions/xnu/blob/main/osfmk/kern/task.c) for the conversion.
+- The memory pressure sysctl returns dispatch flags (1 / 2 / 4), which differ from the kernel-internal enumeration. See [Apple XNU kern_memorystatus_notify.c](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/kern/kern_memorystatus_notify.c).
+- Disk throughput is based on deltas of the devices' cumulative counters, matched by stable device ID and then summed. [Apple's description of the bytes-read counter](https://developer.apple.com/documentation/iokit/kioblockstoragedriverstatisticsbytesreadkey).
 
-模块开关同时控制主屏和明细。关闭 GPU / 磁盘读写也会停止对应采样；CPU / 内存继续为菜单栏和告警提供数据。多 GPU 时主屏显示占用最高的设备，设备切换会重建 GPU 历史，明细列出各设备。性能核 / 能效核只显示系统报告的总数，不推测逐核编号归属。
+Module toggles control both the overview and details. Turning off GPU / disk I/O also stops the corresponding sampling; CPU / memory keep supplying the menu bar and alerts. With multiple GPUs the overview shows the busiest device, and switching devices rebuilds GPU history while details list every device. Performance / efficiency core counts only show the totals the system reports and do not infer per-core numbering.
