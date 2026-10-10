@@ -279,7 +279,7 @@ final class SensorHub {
         let request = UNNotificationRequest(identifier: event.id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
-                Self.logger.error("通知发送失败: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error("Failed to send notification: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
