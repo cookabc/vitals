@@ -128,3 +128,13 @@ Module toggles control both the overview and details. Turning off GPU / disk I/O
 ## License
 
 Vitals is released under the [MIT License](LICENSE).
+
+## Local packaging
+
+Run `bash scripts/package-app.sh` to generate the Xcode project, build the Apple
+silicon app and place a locally signed copy at `dist/Vitals.app`. Quit Vitals
+before replacing an installed copy.
+
+The app uses an ad-hoc signature for local builds and is not notarized.
+GitHub Actions runs the tests and packages a local build on macOS 26; it does
+not publish releases.
