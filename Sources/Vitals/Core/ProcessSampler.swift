@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-struct RawProcess {
+struct RawProcess: Sendable {
     let userTime: UInt64 // 累计用户态 CPU 时间，纳秒
     let systemTime: UInt64
     let residentBytes: UInt64

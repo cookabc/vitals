@@ -13,7 +13,7 @@ struct BatteryInfo: Equatable {
     let timeRemainingMinutes: Int?
 }
 
-struct ProcessSample: Identifiable, Equatable {
+struct ProcessSample: Identifiable, Equatable, Sendable {
     let pid: pid_t
     let name: String
     let cpuPercent: Double

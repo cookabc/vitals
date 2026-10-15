@@ -10,6 +10,7 @@ final class SensorHub {
     static private(set) var shared: SensorHub?
 
     nonisolated private static let logger = Logger(subsystem: "com.cookabc.vitals", category: "sensors")
+    nonisolated private static let perfLog = OSLog(subsystem: "com.cookabc.vitals", category: "perf")
     static let historyCapacity = 120
 
     // CPU
@@ -79,8 +80,22 @@ final class SensorHub {
     private var alertEngine = AlertEngine()
     private var loop: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
+    private let preferences: UserDefaults
+    private let readGPU: @MainActor () async -> [GPUStats]
+    private let readProcesses: @MainActor ([pid_t: RawProcess], TimeInterval) async ->
+        (top: [ProcessSample], snapshot: [pid_t: RawProcess])
 
-    init() {
+    init(
+        preferences: UserDefaults = .standard,
+        readGPU: @escaping @MainActor () async -> [GPUStats] = { await HeavySampler.gpuDevices() },
+        readProcesses: @escaping @MainActor ([pid_t: RawProcess], TimeInterval) async ->
+            (top: [ProcessSample], snapshot: [pid_t: RawProcess]) = {
+                await HeavySampler.rankedProcesses(previous: $0, interval: $1)
+            }
+    ) {
+        self.preferences = preferences
+        self.readGPU = readGPU
+        self.readProcesses = readProcesses
         memoryTotal = Int64(ProcessInfo.processInfo.physicalMemory)
         refreshBattery()
         refreshDisk()
@@ -89,20 +104,30 @@ final class SensorHub {
     }
 
     func start() {
-        guard loop == nil else { return }
-        tickOnce()
+        guard loop == nil, !isPaused else { return }
         loop = Task { [weak self] in
-            while !Task.isCancelled {
-                let interval = self?.samplingInterval() ?? 1
-                try? await Task.sleep(for: .seconds(interval))
-                self?.tickOnce()
+            while !Task.isCancelled, let self {
+                await self.tickOnce()
+                do {
+                    try await Task.sleep(for: .seconds(self.samplingInterval()))
+                } catch {
+                    return
+                }
             }
         }
     }
 
+    func stop() {
+        loop?.cancel()
+        loop = nil
+    }
+
     func togglePause() {
         isPaused.toggle()
-        if !isPaused {
+        if isPaused {
+            // Cancellation invalidates any result still in flight and interrupts the interval sleep.
+            stop()
+        } else {
             // Establish fresh rate baselines after a pause rather than averaging across the paused time.
             lastTicks = nil
             lastNet = nil
@@ -111,7 +136,7 @@ final class SensorHub {
             lastProcesses = nil
             lastProcessAt = .distantPast
             diskActivity = nil
-            tickOnce()
+            start()
         }
     }
 
@@ -137,12 +162,44 @@ final class SensorHub {
     }
 
     private func samplingInterval() -> Double {
-        let raw = UserDefaults.standard.double(forKey: "samplingInterval")
+        let raw = preferences.double(forKey: "samplingInterval")
         return raw >= 0.5 ? raw : 1.0
     }
 
-    private func tickOnce() {
-        guard !isPaused else { return }
+    /// 采样一次。DEBUG 下把主线程耗时打成 signpost + 可脚本采集的日志行，用于优化前后同口径对比。
+    private func tickOnce() async {
+        let measurement = TickMeasurement()
+        #if DEBUG
+        let signpostID = OSSignpostID(log: Self.perfLog)
+        let startNano = DispatchTime.now().uptimeNanoseconds
+        os_signpost(.begin, log: Self.perfLog, name: "tick", signpostID: signpostID)
+        await performTick(measurement: measurement)
+        os_signpost(.end, log: Self.perfLog, name: "tick", signpostID: signpostID)
+        let totalMicros = Int((DispatchTime.now().uptimeNanoseconds - startNano) / 1000)
+        Self.logger.info("tick total_us=\(totalMicros) off_us=\(measurement.offThreadMicros) main_us=\(totalMicros - measurement.offThreadMicros)")
+        #else
+        await performTick(measurement: measurement)
+        #endif
+    }
+
+    /// Each tick owns its timings: a cancelled read can finish after a resumed tick has begun.
+    @MainActor
+    private final class TickMeasurement {
+        var offThreadMicros = 0
+
+        func measure<T>(_ work: () async -> T) async -> T {
+            #if DEBUG
+            let start = DispatchTime.now().uptimeNanoseconds
+            let value = await work()
+            offThreadMicros += Int((DispatchTime.now().uptimeNanoseconds - start) / 1000)
+            return value
+            #else
+            return await work()
+            #endif
+        }
+    }
+    private func performTick(measurement: TickMeasurement) async {
+        guard !isPaused, !Task.isCancelled else { return }
         tickCount += 1
         let now = Date()
 
@@ -192,9 +249,11 @@ final class SensorHub {
             lastNet = snapshot
         }
 
-        if UserDefaults.standard.object(forKey: "showGPU") as? Bool ?? true {
+        if preferences.object(forKey: "showGPU") as? Bool ?? true {
             let previousID = gpu?.id
-            gpuDevices = GPUSampler.read()
+            let devices = await measurement.measure { await readGPU() }
+            guard !Task.isCancelled, !isPaused else { return }
+            gpuDevices = devices
             if previousID != gpu?.id { gpuHistory.removeAll(keepingCapacity: true) }
             if let value = gpu?.utilization {
                 gpuHistory.append(TimedSample(t: now, v: value))
@@ -209,14 +268,15 @@ final class SensorHub {
         sampleDiskActivity(now: now)
         if tickCount % 30 == 1 { refreshDisk() }
         if tickCount % 5 == 0 { refreshBattery() }
-        let processesEnabled = UserDefaults.standard.object(forKey: "showProcesses") as? Bool ?? true
+        let processesEnabled = preferences.object(forKey: "showProcesses") as? Bool ?? true
         if processesEnabled, now.timeIntervalSince(lastProcessAt) >= 4.5 {
             let interval = now.timeIntervalSince(lastProcessAt)
-            let snapshot = ProcessSampler.snapshot()
-            if let old = lastProcesses {
-                topProcesses = ProcessSampler.topProcesses(old: old, new: snapshot, interval: max(interval, 0.5))
+            let result = await measurement.measure {
+                await readProcesses(lastProcesses ?? [:], interval)
             }
-            lastProcesses = snapshot
+            guard !Task.isCancelled, !isPaused else { return }
+            topProcesses = result.top
+            lastProcesses = result.snapshot
             lastProcessAt = now
         }
 
@@ -225,7 +285,7 @@ final class SensorHub {
     }
 
     private func sampleDiskActivity(now: Date) {
-        guard UserDefaults.standard.object(forKey: "showDiskActivity") as? Bool ?? true else {
+        guard preferences.object(forKey: "showDiskActivity") as? Bool ?? true else {
             lastDiskCounters = nil
             lastDiskAt = nil
             diskActivity = nil
@@ -258,9 +318,9 @@ final class SensorHub {
     }
 
     private func runAlertChecks(now: Date) {
-        guard UserDefaults.standard.object(forKey: "alertsEnabled") as? Bool ?? false else { return }
-        alertEngine.cpuThreshold = UserDefaults.standard.object(forKey: "cpuAlertThreshold") as? Double ?? 90
-        alertEngine.diskThreshold = UserDefaults.standard.object(forKey: "diskAlertThreshold") as? Double ?? 85
+        guard preferences.object(forKey: "alertsEnabled") as? Bool ?? false else { return }
+        alertEngine.cpuThreshold = preferences.object(forKey: "cpuAlertThreshold") as? Double ?? 90
+        alertEngine.diskThreshold = preferences.object(forKey: "diskAlertThreshold") as? Double ?? 85
         for event in alertEngine.evaluate(
             cpuPercent: cpuTotal,
             diskUsedFraction: diskUsedFraction,

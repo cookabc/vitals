@@ -1,7 +1,7 @@
 import Foundation
 import IOKit
 
-struct GPUStats: Equatable, Identifiable {
+struct GPUStats: Equatable, Identifiable, Sendable {
     let id: UInt64
     let utilization: Double?
     let renderer: Double?
