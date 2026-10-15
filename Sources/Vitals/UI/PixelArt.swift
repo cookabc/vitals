@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Original 5×7 bitmap alphabet. Integer cell positions keep labels crisp at both display scales.
@@ -64,56 +65,96 @@ struct PixelText: View {
     ]
 }
 
+/// 机身静态像素。逐帧重画要跑 4480 次点在多边形判定加数千次 fill，
+/// 是面板单次绘制的最大单项开销，因此只在首次使用时烘焙成位图。
+enum PixelMachinePlate {
+    static let pixelSize = CGSize(width: 160, height: 112)
+
+    static let image = NSImage(cgImage: raster(), size: pixelSize)
+
+    private static func srgb(_ r: CGFloat, _ g: CGFloat, _ b: CGFloat, _ a: CGFloat = 1) -> CGColor {
+        NSColor(srgbRed: r, green: g, blue: b, alpha: a).cgColor
+    }
+
+    private static func raster() -> CGImage {
+        let space = CGColorSpace(name: CGColorSpace.sRGB)!
+        let context = CGContext(data: nil,
+                                width: Int(pixelSize.width), height: Int(pixelSize.height),
+                                bitsPerComponent: 8, bytesPerRow: 0, space: space,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        // CGContext 原点在左下，翻转成与 Canvas 一致的 y 轴向下。
+        context.translateBy(x: 0, y: pixelSize.height)
+        context.scaleBy(x: 1, y: -1)
+
+        func shape(_ vertices: [CGPoint]) -> Path {
+            var p = Path()
+            p.addLines(vertices)
+            p.closeSubpath()
+            return p
+        }
+        let top = shape([CGPoint(x: 18, y: 48), CGPoint(x: 80, y: 18), CGPoint(x: 146, y: 48), CGPoint(x: 84, y: 80)])
+        let front = shape([CGPoint(x: 18, y: 48), CGPoint(x: 84, y: 80), CGPoint(x: 84, y: 101), CGPoint(x: 18, y: 69)])
+        let side = shape([CGPoint(x: 84, y: 80), CGPoint(x: 146, y: 48), CGPoint(x: 146, y: 69), CGPoint(x: 84, y: 101)])
+        let shadow = shape([CGPoint(x: 14, y: 75), CGPoint(x: 78, y: 104), CGPoint(x: 154, y: 72), CGPoint(x: 91, y: 53)])
+
+        let shadowColor = srgb(0, 0, 0, 0.55)
+        let sideColor = srgb(0.47, 0.35, 0.18)
+        let ventColor = srgb(0.22, 0.19, 0.15)
+        let frontColor = srgb(0.78, 0.62, 0.34)
+        let grainColor = srgb(0.85, 0.70, 0.43)
+        let topColor = srgb(0.92, 0.78, 0.50)
+        let pulseColor = srgb(0.57, 0.45, 0.25)
+
+        for y in stride(from: 0, to: 112, by: 2) {
+            for x in stride(from: 0, to: 160, by: 2) {
+                let point = CGPoint(x: x + 1, y: y + 1)
+                var tint: CGColor?
+                if shadow.contains(point) { tint = shadowColor }
+                if side.contains(point) { tint = sideColor }
+                if front.contains(point) {
+                    let vent = ((x / 2) % 3 == 0) && ((y - x / 2) % 6 < 3)
+                    tint = vent ? ventColor : frontColor
+                }
+                if top.contains(point) {
+                    let grain = (x / 2 + y / 2) % 4 == 0
+                    tint = grain ? grainColor : topColor
+                }
+                guard let tint else { continue }
+                context.setFillColor(tint)
+                context.fill(CGRect(x: x, y: y, width: 2, height: 2))
+            }
+        }
+        // 顶面上的蚀刻脉冲，与负载无关，属于静态纹理。
+        context.setFillColor(pulseColor)
+        for (x, y) in [(60,46),(62,46),(64,48),(66,50),(68,52),(70,50),(72,48),(74,46),(76,44),(78,46),(80,48),(82,48)] {
+            context.fill(CGRect(x: x, y: y, width: 2, height: 2))
+        }
+        return context.makeImage()!
+    }
+}
+
 /// Decorative isometric compute module. Status pixels are tied to real CPU load, never synthetic readings.
 struct PixelMachineArt: View {
     var load: Double
     var paused: Bool
 
     var body: some View {
-        Canvas { context, size in
-            let offset = CGPoint(x: floor((size.width - 160) / 2), y: 0)
-            func shape(_ vertices: [CGPoint]) -> Path {
-                var p = Path()
-                p.addLines(vertices)
-                p.closeSubpath()
-                return p
-            }
-            let top = shape([CGPoint(x: 18, y: 48), CGPoint(x: 80, y: 18), CGPoint(x: 146, y: 48), CGPoint(x: 84, y: 80)])
-            let front = shape([CGPoint(x: 18, y: 48), CGPoint(x: 84, y: 80), CGPoint(x: 84, y: 101), CGPoint(x: 18, y: 69)])
-            let side = shape([CGPoint(x: 84, y: 80), CGPoint(x: 146, y: 48), CGPoint(x: 146, y: 69), CGPoint(x: 84, y: 101)])
-            let shadow = shape([CGPoint(x: 14, y: 75), CGPoint(x: 78, y: 104), CGPoint(x: 154, y: 72), CGPoint(x: 91, y: 53)])
-            for y in stride(from: 0, to: 112, by: 2) {
-                for x in stride(from: 0, to: 160, by: 2) {
-                    let point = CGPoint(x: x + 1, y: y + 1)
-                    var tint: Color?
-                    if shadow.contains(point) { tint = .black.opacity(0.55) }
-                    if side.contains(point) { tint = Color(red: 0.47, green: 0.35, blue: 0.18) }
-                    if front.contains(point) {
-                        let vent = ((x / 2) % 3 == 0) && ((y - x / 2) % 6 < 3)
-                        tint = vent ? Color(red: 0.22, green: 0.19, blue: 0.15) : Color(red: 0.78, green: 0.62, blue: 0.34)
-                    }
-                    if top.contains(point) {
-                        let grain = (x / 2 + y / 2) % 4 == 0
-                        tint = grain ? Color(red: 0.85, green: 0.70, blue: 0.43) : Color(red: 0.92, green: 0.78, blue: 0.50)
-                    }
-                    if let tint {
-                        context.fill(Path(CGRect(x: CGFloat(x) + offset.x, y: CGFloat(y), width: 2, height: 2)), with: .color(tint))
-                    }
+        ZStack(alignment: .top) {
+            Image(nsImage: PixelMachinePlate.image)
+                .resizable()
+                .interpolation(.none)
+                .frame(width: PixelMachinePlate.pixelSize.width, height: PixelMachinePlate.pixelSize.height)
+            // 只有状态灯与活动粒子随真实读数变化，逐帧重画这一小层。
+            Canvas { context, size in
+                let offset = floor((size.width - PixelMachinePlate.pixelSize.width) / 2)
+                context.fill(Path(CGRect(x: offset + 91, y: 89, width: 4, height: 2)),
+                             with: .color(paused ? PixelPalette.yellow : PixelPalette.cyan))
+                for index in 0..<12 {
+                    let x = 91 + (index * 17) % 57
+                    let y = 12 + (index * 11) % 24
+                    context.fill(Path(CGRect(x: offset + CGFloat(x), y: CGFloat(y), width: 2, height: 2)),
+                                 with: .color(PixelPalette.yellow.opacity(index < Int(load / 9) && !paused ? 0.7 : 0.12)))
                 }
-            }
-            // Physical-looking status light and a short stepped pulse etched on the top face.
-            context.fill(Path(CGRect(x: offset.x + 91, y: 89, width: 4, height: 2)),
-                         with: .color(paused ? PixelPalette.yellow : PixelPalette.cyan))
-            for (x, y) in [(60,46),(62,46),(64,48),(66,50),(68,52),(70,50),(72,48),(74,46),(76,44),(78,46),(80,48),(82,48)] {
-                context.fill(Path(CGRect(x: offset.x + CGFloat(x), y: CGFloat(y), width: 2, height: 2)),
-                             with: .color(Color(red: 0.57, green: 0.45, blue: 0.25)))
-            }
-            // Sparse activity particles become brighter under actual load; they dim while sampling is paused.
-            for index in 0..<12 {
-                let x = 91 + (index * 17) % 57
-                let y = 12 + (index * 11) % 24
-                context.fill(Path(CGRect(x: offset.x + CGFloat(x), y: CGFloat(y), width: 2, height: 2)),
-                             with: .color(PixelPalette.yellow.opacity(index < Int(load / 9) && !paused ? 0.7 : 0.12)))
             }
         }
     }
