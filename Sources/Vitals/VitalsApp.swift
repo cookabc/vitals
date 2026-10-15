@@ -9,6 +9,7 @@ final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard CommandLine.arguments.contains("--debug-panel") else { return }
         guard let hub = SensorHub.shared else { return }
+        NSApp.setActivationPolicy(.regular)
         let window = NSWindow(
             contentRect: NSRect(x: 100, y: 300, width: VitalsTheme.panelWidth, height: VitalsTheme.panelHeight),
             styleMask: [.titled, .closable],
@@ -25,6 +26,7 @@ final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
                 .background(SettingsWindowRegistration(titleKey: "window.debug", managesSettings: false))
         })
         window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
     }
 }
 #endif

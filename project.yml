@@ -50,6 +50,20 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: Vitals
+  VitalsUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/VitalsUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        # VitalsUI 是可选的界面测试 scheme。运行时通过 xcodebuild 指定 DEVELOPMENT_TEAM
+        # 和 CODE_SIGN_IDENTITY；团队 ID 应取自证书的 OU，而非证书名称末尾的成员 ID。
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: Apple Development
+    dependencies:
+      - target: Vitals
 schemes:
   Vitals:
     build:
@@ -63,3 +77,14 @@ schemes:
       gatherCoverageData: false
       targets:
         - VitalsTests
+  VitalsUI:
+    build:
+      targets:
+        Vitals: all
+        VitalsUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - VitalsUITests

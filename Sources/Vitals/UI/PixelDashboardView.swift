@@ -52,16 +52,19 @@ struct PixelDashboardView: View {
             Button { details.toggle() } label: {
                 Text(tr(details ? "action.monitorShort" : "action.detailsShort"))
             }
+            .accessibilityIdentifier("vitals.panel.details")
             .help(details ? tr("action.monitor") : tr("action.details"))
             Button { hub.togglePause() } label: {
                 Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
             }
+            .accessibilityIdentifier("vitals.panel.pause")
             .accessibilityLabel(hub.isPaused ? tr("action.resume") : tr("action.pause"))
             Button {
                 SettingsPresenter.shared.present(using: openSettings)
             } label: {
                 Image(systemName: "slider.horizontal.3")
             }
+            .accessibilityIdentifier("vitals.panel.settings")
             .help(tr("action.settings"))
             .accessibilityLabel(tr("action.settings"))
         }
@@ -122,6 +125,7 @@ struct PixelDashboardView: View {
                 Text(PixelHardware.coreSummary(language: language)).foregroundStyle(PixelPalette.muted)
                 Spacer()
                 PixelText("\(Int(hub.cpuTotal.rounded()))%", scale: 2, color: PixelPalette.cyan)
+                    .accessibilityIdentifier("vitals.panel.cpuValue")
             }
             PixelCoreMeters(values: hub.cpuPerCore)
                 .frame(height: 50)
@@ -269,6 +273,7 @@ struct PixelDashboardView: View {
             Spacer()
             Text(tr("footer.local")).foregroundStyle(PixelPalette.muted)
             Text(hub.lastUpdated, format: .dateTime.hour().minute().second())
+                .accessibilityIdentifier("vitals.panel.updatedAt")
         }
         .font(.system(size: 9, design: .monospaced))
         .frame(height: 14)
