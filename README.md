@@ -1,3 +1,5 @@
+**English** · [简体中文](README.zh-CN.md)
+
 # Vitals — Menu Bar System Monitor
 
 Vitals is a macOS system monitor that lives only in the menu bar. The menu bar icon shows a live CPU mini-curve and usage percentage; clicking it opens a dark pixel dashboard with CPU, memory, network, disk, battery and process details. No Dock icon, no main window.
