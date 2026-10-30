@@ -11,6 +11,7 @@ struct ToggleMonitoringIntent: AppIntent {
             return .result(dialog: IntentDialog(stringLiteral: L10n.text("intent.notRunning")))
         }
         hub.togglePause()
-        return .result(dialog: IntentDialog(stringLiteral: L10n.text(hub.isPaused ? "intent.paused" : "intent.resumed")))
+        return .result(
+            dialog: IntentDialog(stringLiteral: L10n.text(hub.isPaused ? "intent.paused" : "intent.resumed")))
     }
 }

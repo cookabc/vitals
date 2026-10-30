@@ -19,7 +19,8 @@ enum Samplers {
         var processorCount: natural_t = 0
         var cpuInfo: processor_info_array_t?
         var infoCount: mach_msg_type_number_t = 0
-        let kr = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &processorCount, &cpuInfo, &infoCount)
+        let kr = host_processor_info(
+            mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &processorCount, &cpuInfo, &infoCount)
         guard kr == KERN_SUCCESS, let cpuInfo else { return nil }
         defer {
             let byteCount = vm_size_t(infoCount) * vm_size_t(MemoryLayout<integer_t>.stride)
@@ -41,9 +42,11 @@ enum Samplers {
 
     static func readMemory() -> MemoryStats? {
         var stats = vm_statistics64_data_t()
-        var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride)
         let kr = withUnsafeMutableBytes(of: &stats) { raw -> kern_return_t in
-            host_statistics64(mach_host_self(), HOST_VM_INFO64, raw.bindMemory(to: integer_t.self).baseAddress!, &count)
+            host_statistics64(
+                mach_host_self(), HOST_VM_INFO64, raw.bindMemory(to: integer_t.self).baseAddress!, &count)
         }
         guard kr == KERN_SUCCESS else { return nil }
         let pageSize = Int64(sysconf(_SC_PAGESIZE))
@@ -64,14 +67,20 @@ enum Samplers {
         var usage = xsw_usage()
         var size = MemoryLayout<xsw_usage>.stride
         guard sysctlbyname("vm.swapusage", &usage, &size, nil, 0) == 0,
-              size == MemoryLayout<xsw_usage>.stride else { return nil }
-        return (Int64(clamping: usage.xsu_total), Int64(clamping: usage.xsu_used), Int64(clamping: usage.xsu_avail))
+            size == MemoryLayout<xsw_usage>.stride
+        else { return nil }
+        return (
+            Int64(clamping: usage.xsu_total), Int64(clamping: usage.xsu_used),
+            Int64(clamping: usage.xsu_avail)
+        )
     }
 
     static func readMemoryPressure() -> MemoryPressure? {
         var value: Int32 = 0
         var size = MemoryLayout<Int32>.size
-        guard sysctlbyname("kern.memorystatus_vm_pressure_level", &value, &size, nil, 0) == 0 else { return nil }
+        guard sysctlbyname("kern.memorystatus_vm_pressure_level", &value, &size, nil, 0) == 0 else {
+            return nil
+        }
         return MemoryPressure(rawValue: Int(value))
     }
 
@@ -99,8 +108,9 @@ enum Samplers {
             let entry = current.pointee
             cursor = entry.ifa_next
             if let address = entry.ifa_addr,
-               address.pointee.sa_family == UInt8(AF_LINK),
-               let data = entry.ifa_data {
+                address.pointee.sa_family == UInt8(AF_LINK),
+                let data = entry.ifa_data
+            {
                 let name = String(cString: entry.ifa_name)
                 let isUp = entry.ifa_flags & UInt32(IFF_UP) != 0
                 let excluded = excludedInterfacePrefixes.contains { name.hasPrefix($0) }
@@ -118,34 +128,42 @@ enum Samplers {
 
     static func readDisk() -> (total: Int64, free: Int64)? {
         let root = URL(fileURLWithPath: "/")
-        guard let values = try? root.resourceValues(forKeys: [.volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey]),
-              let total = values.volumeTotalCapacity,
-              let free = values.volumeAvailableCapacityForImportantUsage
+        guard
+            let values = try? root.resourceValues(forKeys: [
+                .volumeTotalCapacityKey, .volumeAvailableCapacityForImportantUsageKey,
+            ]),
+            let total = values.volumeTotalCapacity,
+            let free = values.volumeAvailableCapacityForImportantUsage
         else { return nil }
         return (Int64(total), free)
     }
 }
-
 
 extension Samplers {
     /// IOBlockStorageDriver owns cumulative per-device counters. Includes mounted disk images.
     static func readDiskCounters() -> [UInt64: DiskCounters]? {
         guard let matching = IOServiceMatching("IOBlockStorageDriver") else { return nil }
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { return nil }
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else {
+            return nil
+        }
         defer { IOObjectRelease(iterator) }
         var counters: [UInt64: DiskCounters] = [:]
         while case let service = IOIteratorNext(iterator), service != 0 {
             defer { IOObjectRelease(service) }
             var id: UInt64 = 0
             guard IORegistryEntryGetRegistryEntryID(service, &id) == KERN_SUCCESS,
-                  let statistics = IORegistryEntryCreateCFProperty(service, "Statistics" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue() as? [String: Any],
-                  let read = statistics["Bytes (Read)"] as? NSNumber,
-                  let write = statistics["Bytes (Write)"] as? NSNumber,
-                  let reads = statistics["Operations (Read)"] as? NSNumber,
-                  let writes = statistics["Operations (Write)"] as? NSNumber else { continue }
-            counters[id] = DiskCounters(readBytes: read.uint64Value, writtenBytes: write.uint64Value,
-                                        reads: reads.uint64Value, writes: writes.uint64Value)
+                let statistics = IORegistryEntryCreateCFProperty(
+                    service, "Statistics" as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+                    as? [String: Any],
+                let read = statistics["Bytes (Read)"] as? NSNumber,
+                let write = statistics["Bytes (Write)"] as? NSNumber,
+                let reads = statistics["Operations (Read)"] as? NSNumber,
+                let writes = statistics["Operations (Write)"] as? NSNumber
+            else { continue }
+            counters[id] = DiskCounters(
+                readBytes: read.uint64Value, writtenBytes: write.uint64Value,
+                reads: reads.uint64Value, writes: writes.uint64Value)
         }
         return counters.isEmpty ? nil : counters
     }

@@ -1,40 +1,43 @@
 import SwiftUI
 
 #if DEBUG
-import AppKit
+    import AppKit
 
-/// 视觉走查辅助：`--debug-panel` 启动时把浮窗内容放进普通窗口，便于截屏检查。
-/// 发布版（Release）不含此钩子。
-final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
-        guard CommandLine.arguments.contains("--debug-panel") else { return }
-        guard let hub = SensorHub.shared else { return }
-        NSApp.setActivationPolicy(.regular)
-        let window = NSWindow(
-            contentRect: NSRect(x: 100, y: 300, width: VitalsTheme.panelWidth, height: VitalsTheme.panelHeight),
-            styleMask: [.titled, .closable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = L10n.text("window.debug")
-        window.isReleasedWhenClosed = false
-        if CommandLine.arguments.contains("--debug-dark") {
-            NSApp.appearance = NSAppearance(named: .darkAqua)
+    /// 视觉走查辅助：`--debug-panel` 启动时把浮窗内容放进普通窗口，便于截屏检查。
+    /// 发布版（Release）不含此钩子。
+    final class DebugPanelDelegate: NSObject, NSApplicationDelegate {
+        func applicationDidFinishLaunching(_ notification: Notification) {
+            guard CommandLine.arguments.contains("--debug-panel") else { return }
+            guard let hub = SensorHub.shared else { return }
+            NSApp.setActivationPolicy(.regular)
+            let window = NSWindow(
+                contentRect: NSRect(
+                    x: 100, y: 300, width: VitalsTheme.panelWidth, height: VitalsTheme.panelHeight),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = L10n.text("window.debug")
+            window.isReleasedWhenClosed = false
+            if CommandLine.arguments.contains("--debug-dark") {
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+            }
+            window.contentView = NSHostingView(
+                rootView: LocalizedContent {
+                    PopoverView(hub: hub)
+                        .background(
+                            SettingsWindowRegistration(titleKey: "window.debug", managesSettings: false))
+                })
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
         }
-        window.contentView = NSHostingView(rootView: LocalizedContent {
-            PopoverView(hub: hub)
-                .background(SettingsWindowRegistration(titleKey: "window.debug", managesSettings: false))
-        })
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
     }
-}
 #endif
 
 @main
 struct VitalsApp: App {
     #if DEBUG
-    @NSApplicationDelegateAdaptor(DebugPanelDelegate.self) private var debugDelegate
+        @NSApplicationDelegateAdaptor(DebugPanelDelegate.self) private var debugDelegate
     #endif
 
     @State private var hub: SensorHub

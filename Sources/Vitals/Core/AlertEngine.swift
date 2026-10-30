@@ -16,17 +16,22 @@ struct AlertEngine {
     private var cpuHighSince: Date?
     private var lastFired: [String: Date] = [:]
 
-    mutating func evaluate(cpuPercent: Double, diskUsedFraction: Double, thermalState: ProcessInfo.ThermalState, now: Date) -> [AlertEvent] {
+    mutating func evaluate(
+        cpuPercent: Double, diskUsedFraction: Double, thermalState: ProcessInfo.ThermalState, now: Date
+    ) -> [AlertEvent] {
         var events: [AlertEvent] = []
 
         if cpuPercent >= cpuThreshold {
             if cpuHighSince == nil { cpuHighSince = now }
             if let since = cpuHighSince, now.timeIntervalSince(since) >= sustainSeconds {
-                events.append(AlertEvent(
-                    id: "cpu",
-                    title: L10n.text("alert.cpu.title"),
-                    body: L10n.text("alert.cpu.body", arguments: [Int(cpuThreshold), Int(sustainSeconds), Int(cpuPercent)])
-                ))
+                events.append(
+                    AlertEvent(
+                        id: "cpu",
+                        title: L10n.text("alert.cpu.title"),
+                        body: L10n.text(
+                            "alert.cpu.body",
+                            arguments: [Int(cpuThreshold), Int(sustainSeconds), Int(cpuPercent)])
+                    ))
                 cpuHighSince = nil
             }
         } else {
@@ -34,18 +39,25 @@ struct AlertEngine {
         }
 
         if diskUsedFraction * 100 >= diskThreshold {
-            events.append(AlertEvent(
-                id: "disk",
-                title: L10n.text("alert.disk.title"),
-                body: L10n.text("alert.disk.body", arguments: [Int((diskUsedFraction * 100).rounded())])
-            ))
+            events.append(
+                AlertEvent(
+                    id: "disk",
+                    title: L10n.text("alert.disk.title"),
+                    body: L10n.text("alert.disk.body", arguments: [Int((diskUsedFraction * 100).rounded())])
+                ))
         }
 
         switch thermalState {
         case .serious:
-            events.append(AlertEvent(id: "thermal-serious", title: L10n.text("alert.thermal.serious.title"), body: L10n.text("alert.thermal.serious.body")))
+            events.append(
+                AlertEvent(
+                    id: "thermal-serious", title: L10n.text("alert.thermal.serious.title"),
+                    body: L10n.text("alert.thermal.serious.body")))
         case .critical:
-            events.append(AlertEvent(id: "thermal-critical", title: L10n.text("alert.thermal.critical.title"), body: L10n.text("alert.thermal.critical.body")))
+            events.append(
+                AlertEvent(
+                    id: "thermal-critical", title: L10n.text("alert.thermal.critical.title"),
+                    body: L10n.text("alert.thermal.critical.body")))
         default:
             break
         }

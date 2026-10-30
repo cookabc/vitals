@@ -37,22 +37,33 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: 8) {
                     PixelSection(tr("settings.language")) {
-                        PixelChoice(selection: $languageRaw, options: [
-                            (tr("language.system"), AppLanguage.system.rawValue),
-                            (tr("language.chinese"), AppLanguage.simplifiedChinese.rawValue),
-                            (tr("language.english"), AppLanguage.english.rawValue)
-                        ])
+                        PixelChoice(
+                            selection: $languageRaw,
+                            options: [
+                                (tr("language.system"), AppLanguage.system.rawValue),
+                                (tr("language.chinese"), AppLanguage.simplifiedChinese.rawValue),
+                                (tr("language.english"), AppLanguage.english.rawValue),
+                            ])
                     }
                     PixelSection(tr("settings.menu")) {
                         Text(tr("settings.mode")).foregroundStyle(PixelPalette.muted)
-                        PixelChoice(selection: $menubarMode, options: MenubarMode.allCases.map { (tr($0.titleKey), $0.rawValue) })
+                        PixelChoice(
+                            selection: $menubarMode,
+                            options: MenubarMode.allCases.map { (tr($0.titleKey), $0.rawValue) })
                         Text(tr("settings.interval")).foregroundStyle(PixelPalette.muted)
-                        PixelChoice(selection: $samplingInterval, options: [(tr("settings.seconds", "0.5"), 0.5), (tr("settings.seconds", "1"), 1), (tr("settings.seconds", "2"), 2)])
+                        PixelChoice(
+                            selection: $samplingInterval,
+                            options: [
+                                (tr("settings.seconds", "0.5"), 0.5), (tr("settings.seconds", "1"), 1),
+                                (tr("settings.seconds", "2"), 2),
+                            ])
                     }
                     PixelSection(tr("settings.modules")) {
                         Text(tr("settings.modulesHelp"))
                             .font(.system(size: 10)).foregroundStyle(PixelPalette.muted)
-                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 20), GridItem(.flexible())], spacing: 4) {
+                        LazyVGrid(
+                            columns: [GridItem(.flexible(), spacing: 20), GridItem(.flexible())], spacing: 4
+                        ) {
                             Toggle("CPU", isOn: $showCPU)
                             Toggle(tr("settings.gpu"), isOn: $showGPU)
                             Toggle(tr("settings.memory"), isOn: $showMemory)
@@ -76,25 +87,29 @@ struct SettingsView: View {
                             }
                         if alertsEnabled {
                             threshold(tr("settings.cpuThreshold"), value: $cpuAlertThreshold, range: 60...100)
-                            threshold(tr("settings.diskThreshold"), value: $diskAlertThreshold, range: 70...100)
+                            threshold(
+                                tr("settings.diskThreshold"), value: $diskAlertThreshold, range: 70...100)
                             Text(tr("settings.alertHelp"))
                                 .font(.system(size: 10)).foregroundStyle(PixelPalette.muted)
                         }
                     }
                     PixelSection(tr("settings.general")) {
-                        Toggle(tr("settings.launch"), isOn: Binding(
-                            get: { launchAtLogin },
-                            set: { newValue in
-                                do {
-                                    try LaunchAtLogin.setEnabled(newValue)
-                                    launchAtLogin = newValue
-                                    loginError = nil
-                                } catch {
-                                    launchAtLogin = LaunchAtLogin.isEnabled
-                                    loginError = "settings.loginError"
+                        Toggle(
+                            tr("settings.launch"),
+                            isOn: Binding(
+                                get: { launchAtLogin },
+                                set: { newValue in
+                                    do {
+                                        try LaunchAtLogin.setEnabled(newValue)
+                                        launchAtLogin = newValue
+                                        loginError = nil
+                                    } catch {
+                                        launchAtLogin = LaunchAtLogin.isEnabled
+                                        loginError = "settings.loginError"
+                                    }
                                 }
-                            }
-                        )).toggleStyle(PixelToggleStyle())
+                            )
+                        ).toggleStyle(PixelToggleStyle())
                         if let loginError { Text(tr(loginError)).foregroundStyle(PixelPalette.red) }
                         PixelReadout(label: tr("settings.requirements"), value: "macOS 26.0+")
                         Text(tr("settings.sources"))

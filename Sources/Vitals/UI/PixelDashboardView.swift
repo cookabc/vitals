@@ -49,12 +49,16 @@ struct PixelDashboardView: View {
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(PixelPalette.muted)
             Spacer()
-            Button { details.toggle() } label: {
+            Button {
+                details.toggle()
+            } label: {
                 Text(tr(details ? "action.monitorShort" : "action.detailsShort"))
             }
             .accessibilityIdentifier("vitals.panel.details")
             .help(details ? tr("action.monitor") : tr("action.details"))
-            Button { hub.togglePause() } label: {
+            Button {
+                hub.togglePause()
+            } label: {
                 Image(systemName: hub.isPaused ? "play.fill" : "pause.fill")
             }
             .accessibilityIdentifier("vitals.panel.pause")
@@ -95,7 +99,9 @@ struct PixelDashboardView: View {
                 }
                 .frame(height: 104)
             }
-            if !showCPU && !showGPU && !showMemory && !showNetwork && !showDisk && !showDiskActivity && !showSensors && !showBattery {
+            if !showCPU && !showGPU && !showMemory && !showNetwork && !showDisk && !showDiskActivity
+                && !showSensors && !showBattery
+            {
                 PixelSection(tr("empty.title")) { Text(tr("empty.overview")) }
             }
         }
@@ -149,13 +155,22 @@ struct PixelDashboardView: View {
                 PixelText("GPU", color: PixelPalette.lime)
                 Text(tr("gpu.source")).foregroundStyle(PixelPalette.muted)
                 Spacer()
-                PixelText(hub.gpu?.utilization.map { "\(Int($0.rounded()))%" } ?? tr("state.unavailable"), scale: 2, color: PixelPalette.lime)
+                PixelText(
+                    hub.gpu?.utilization.map { "\(Int($0.rounded()))%" } ?? tr("state.unavailable"), scale: 2,
+                    color: PixelPalette.lime)
             }
             HStack(spacing: 12) {
-                PixelTrace(values: hub.gpuHistory.map(\.v), color: PixelPalette.lime, ceiling: 100).frame(height: 40)
+                PixelTrace(values: hub.gpuHistory.map(\.v), color: PixelPalette.lime, ceiling: 100).frame(
+                    height: 40)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(tr("gpu.usedShort", hub.gpu?.memoryInUse.map(Units.gigabytes) ?? tr("state.unavailable")))
-                    Text(tr("gpu.allocatedShort", hub.gpu?.memoryAllocated.map(Units.gigabytes) ?? tr("state.unavailable")))
+                    Text(
+                        tr(
+                            "gpu.usedShort",
+                            hub.gpu?.memoryInUse.map(Units.gigabytes) ?? tr("state.unavailable")))
+                    Text(
+                        tr(
+                            "gpu.allocatedShort",
+                            hub.gpu?.memoryAllocated.map(Units.gigabytes) ?? tr("state.unavailable")))
                     Text(tr("gpu.powerClock")).foregroundStyle(PixelPalette.muted)
                 }
                 .font(.system(size: 9, design: .monospaced)).fixedSize()
@@ -180,14 +195,19 @@ struct PixelDashboardView: View {
                     ForEach(0..<memoryParts.count, id: \.self) { index in
                         let item = memoryParts[index]
                         Rectangle().fill(item.1)
-                            .frame(width: max(0, (geo.size.width - 3) * Double(item.0) / Double(max(1, hub.memoryTotal))))
+                            .frame(
+                                width: max(
+                                    0, (geo.size.width - 3) * Double(item.0) / Double(max(1, hub.memoryTotal))
+                                ))
                     }
                 }
             }
             .frame(height: 9)
             HStack(spacing: 12) {
                 legend(tr("memory.wired"), value: hub.memoryWired, color: PixelPalette.purple)
-                legend(tr("memory.apps"), value: max(0, hub.memoryUsed - hub.memoryWired - hub.memoryCompressed), color: PixelPalette.orange)
+                legend(
+                    tr("memory.apps"), value: max(0, hub.memoryUsed - hub.memoryWired - hub.memoryCompressed),
+                    color: PixelPalette.orange)
                 legend(tr("memory.compactCompressed"), value: hub.memoryCompressed, color: PixelPalette.blue)
                 legend(tr("memory.available"), value: hub.memoryAvailable, color: PixelPalette.muted)
             }
@@ -202,15 +222,19 @@ struct PixelDashboardView: View {
         VStack(alignment: .leading, spacing: 6) {
             PixelText(tr("network.title"), color: PixelPalette.blue)
             HStack {
-                PixelTrace(values: hub.netDownHistory.map(\.v), secondary: hub.netUpHistory.map(\.v), color: PixelPalette.blue)
-                    .frame(height: 42)
+                PixelTrace(
+                    values: hub.netDownHistory.map(\.v), secondary: hub.netUpHistory.map(\.v),
+                    color: PixelPalette.blue
+                )
+                .frame(height: 42)
                 VStack(alignment: .trailing, spacing: 6) {
                     Text("↓ " + Units.speed(hub.netDown)).foregroundStyle(PixelPalette.blue)
                     Text("↑ " + Units.speed(hub.netUp)).foregroundStyle(PixelPalette.purple)
                 }
                 .font(.system(size: 9, design: .monospaced)).fixedSize()
             }
-            Text(tr("network.scope")).font(.system(size: 8, design: .monospaced)).foregroundStyle(PixelPalette.muted)
+            Text(tr("network.scope")).font(.system(size: 8, design: .monospaced)).foregroundStyle(
+                PixelPalette.muted)
         }
         .padding(9).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading).pixelPanel()
         .help(tr("network.help"))
@@ -221,7 +245,9 @@ struct PixelDashboardView: View {
             HStack {
                 PixelText(tr("disk.title"), color: PixelPalette.yellow)
                 Spacer()
-                if showDisk { Text("\(Int(hub.diskUsedFraction * 100))%").foregroundStyle(PixelPalette.yellow) }
+                if showDisk {
+                    Text("\(Int(hub.diskUsedFraction * 100))%").foregroundStyle(PixelPalette.yellow)
+                }
             }
             if showDisk {
                 PixelSegments(fraction: hub.diskUsedFraction, color: PixelPalette.yellow).frame(height: 8)
@@ -251,13 +277,19 @@ struct PixelDashboardView: View {
                 HStack {
                     Text(tr("battery.level", battery.level))
                     Spacer()
-                    Text(battery.isCharging ? tr("battery.charging") : battery.isAC ? tr("battery.ac") : tr("battery.discharging"))
-                        .foregroundStyle(PixelPalette.muted)
+                    Text(
+                        battery.isCharging
+                            ? tr("battery.charging")
+                            : battery.isAC ? tr("battery.ac") : tr("battery.discharging")
+                    )
+                    .foregroundStyle(PixelPalette.muted)
                 }
-                PixelSegments(fraction: Double(battery.level) / 100, color: PixelPalette.cyan).frame(height: 7)
+                PixelSegments(fraction: Double(battery.level) / 100, color: PixelPalette.cyan).frame(
+                    height: 7)
             }
             if showSensors {
-                Text(tr("sensors.unavailable")).font(.system(size: 9, design: .monospaced)).foregroundStyle(PixelPalette.muted)
+                Text(tr("sensors.unavailable")).font(.system(size: 9, design: .monospaced)).foregroundStyle(
+                    PixelPalette.muted)
             }
             Text(hub.isLowPowerMode ? tr("battery.lowPower") : "macOS " + PixelHardware.os)
                 .font(.system(size: 9, design: .monospaced)).foregroundStyle(PixelPalette.muted)
@@ -268,7 +300,8 @@ struct PixelDashboardView: View {
 
     private var footer: some View {
         HStack(spacing: 6) {
-            Rectangle().fill(hub.isPaused ? PixelPalette.yellow : PixelPalette.cyan).frame(width: 5, height: 5)
+            Rectangle().fill(hub.isPaused ? PixelPalette.yellow : PixelPalette.cyan).frame(
+                width: 5, height: 5)
             Text(hub.isPaused ? tr("state.paused") : tr("footer.live", hub.samplingIntervalText))
             Spacer()
             Text(tr("footer.local")).foregroundStyle(PixelPalette.muted)
@@ -282,7 +315,10 @@ struct PixelDashboardView: View {
     private var systemHelp: String {
         var text = tr("thermal.help")
         if showBattery, let battery = hub.battery {
-            text += battery.isCharging ? tr("battery.chargingHelp") : battery.isAC ? tr("battery.acHelp") : tr("battery.dischargingHelp")
+            text +=
+                battery.isCharging
+                ? tr("battery.chargingHelp")
+                : battery.isAC ? tr("battery.acHelp") : tr("battery.dischargingHelp")
             if let minutes = battery.timeRemainingMinutes, minutes > 0 {
                 text += tr("battery.remainingHelp", minutes)
             }
@@ -291,9 +327,11 @@ struct PixelDashboardView: View {
     }
 
     private var memoryParts: [(Int64, Color)] {
-        [(hub.memoryWired, PixelPalette.purple),
-         (max(0, hub.memoryUsed - hub.memoryWired - hub.memoryCompressed), PixelPalette.orange),
-         (hub.memoryCompressed, PixelPalette.blue), (hub.memoryAvailable, PixelPalette.track)]
+        [
+            (hub.memoryWired, PixelPalette.purple),
+            (max(0, hub.memoryUsed - hub.memoryWired - hub.memoryCompressed), PixelPalette.orange),
+            (hub.memoryCompressed, PixelPalette.blue), (hub.memoryAvailable, PixelPalette.track),
+        ]
     }
     private func legend(_ title: String, value: Int64, color: Color) -> some View {
         HStack(spacing: 3) {
@@ -307,13 +345,29 @@ struct PixelDashboardView: View {
         return tr("host.duration", m / 1440, m / 60 % 24, m % 60)
     }
     private var pressureText: String {
-        switch hub.memoryPressure { case .normal: tr("state.normal"); case .warning: tr("state.high"); case .critical: tr("state.critical"); case nil: tr("state.unavailable") }
+        switch hub.memoryPressure {
+        case .normal: tr("state.normal");
+        case .warning: tr("state.high");
+        case .critical: tr("state.critical");
+        case nil: tr("state.unavailable")
+        }
     }
     private var pressureColor: Color {
-        switch hub.memoryPressure { case .normal: PixelPalette.cyan; case .warning: PixelPalette.yellow; case .critical: PixelPalette.red; case nil: PixelPalette.muted }
+        switch hub.memoryPressure {
+        case .normal: PixelPalette.cyan;
+        case .warning: PixelPalette.yellow;
+        case .critical: PixelPalette.red;
+        case nil: PixelPalette.muted
+        }
     }
     private var thermalText: String {
-        switch hub.thermalState { case .nominal: tr("state.normal"); case .fair: tr("state.warm"); case .serious: tr("state.hot"); case .critical: tr("state.thermalCritical"); @unknown default: tr("state.unavailable") }
+        switch hub.thermalState {
+        case .nominal: tr("state.normal");
+        case .fair: tr("state.warm");
+        case .serious: tr("state.hot");
+        case .critical: tr("state.thermalCritical");
+        @unknown default: tr("state.unavailable")
+        }
     }
     private var thermalColor: Color {
         switch hub.thermalState {
@@ -368,8 +422,9 @@ struct PixelSegments: View {
             let count = max(1, Int(size.width / 5))
             let lit = Int((min(1, max(0, fraction)) * Double(count)).rounded())
             for i in 0..<count {
-                context.fill(Path(CGRect(x: CGFloat(i) * 5, y: 0, width: 4, height: size.height)),
-                             with: .color(i < lit ? color : PixelPalette.track))
+                context.fill(
+                    Path(CGRect(x: CGFloat(i) * 5, y: 0, width: 4, height: size.height)),
+                    with: .color(i < lit ? color : PixelPalette.track))
             }
         }.accessibilityLabel("\(Int(fraction * 100))%")
     }
@@ -391,14 +446,18 @@ struct PixelCoreMeters: View {
             for (core, value) in values.enumerated() {
                 let lit = Int((min(100, max(0, value)) / 100 * 10).rounded())
                 for step in 0..<10 {
-                    let rect = CGRect(x: CGFloat(core) * width, y: size.height - CGFloat(step + 1) * 5,
-                                      width: max(1, width - 3), height: 3)
-                    context.fill(Path(rect), with: .color(step < lit ? PixelPalette.cyan : PixelPalette.track))
+                    let rect = CGRect(
+                        x: CGFloat(core) * width, y: size.height - CGFloat(step + 1) * 5,
+                        width: max(1, width - 3), height: 3)
+                    context.fill(
+                        Path(rect), with: .color(step < lit ? PixelPalette.cyan : PixelPalette.track))
                 }
             }
         }
         .accessibilityLabel(tr("cpu.accessibility"))
-        .accessibilityValue(values.enumerated().map { tr("cpu.coreAccessibility", $0.offset + 1, Int($0.element)) }.joined(separator: "; "))
+        .accessibilityValue(
+            values.enumerated().map { tr("cpu.coreAccessibility", $0.offset + 1, Int($0.element)) }.joined(
+                separator: "; "))
     }
 }
 
@@ -418,7 +477,9 @@ struct PixelTrace: View {
             let maxValue = max(1, ceiling ?? (values + secondary).max() ?? 1)
             for y in stride(from: 0.0, to: size.height, by: 8) {
                 for x in stride(from: 0.0, to: size.width, by: 8) {
-                    context.fill(Path(CGRect(x: x, y: y, width: 1, height: 1)), with: .color(PixelPalette.edge.opacity(0.6)))
+                    context.fill(
+                        Path(CGRect(x: x, y: y, width: 1, height: 1)),
+                        with: .color(PixelPalette.edge.opacity(0.6)))
                 }
             }
             func line(_ samples: [Double], _ tint: Color) {
@@ -426,8 +487,10 @@ struct PixelTrace: View {
                 let samples = Array(samples.suffix(120))
                 var path = Path()
                 for (index, sample) in samples.enumerated() {
-                    let p = CGPoint(x: (Double(index) / Double(samples.count - 1) * (size.width - 2)).rounded() + 1,
-                                    y: (size.height - 2 - min(1, max(0, sample / maxValue)) * (size.height - 4)).rounded())
+                    let p = CGPoint(
+                        x: (Double(index) / Double(samples.count - 1) * (size.width - 2)).rounded() + 1,
+                        y: (size.height - 2 - min(1, max(0, sample / maxValue)) * (size.height - 4)).rounded()
+                    )
                     if index == 0 { path.move(to: p) } else { path.addLine(to: p) }
                 }
                 context.stroke(path, with: .color(tint), lineWidth: 1)
@@ -453,16 +516,23 @@ enum PixelHardware {
             guard let name = read("hw.perflevel\(index).name") else { break }
             var count: Int32 = 0
             var size = MemoryLayout<Int32>.size
-            guard sysctlbyname("hw.perflevel\(index).logicalcpu", &count, &size, nil, 0) == 0, count > 0 else { continue }
-            let key = name == "Performance" ? "cpu.performanceCount" : name == "Efficiency" ? "cpu.efficiencyCount" : "cpu.coreCount"
+            guard sysctlbyname("hw.perflevel\(index).logicalcpu", &count, &size, nil, 0) == 0, count > 0
+            else { continue }
+            let key =
+                name == "Performance"
+                ? "cpu.performanceCount" : name == "Efficiency" ? "cpu.efficiencyCount" : "cpu.coreCount"
             groups.append((key, Int(count)))
         }
         return groups
     }()
 
     static func coreSummary(language: AppLanguage) -> String {
-        if coreGroups.isEmpty { return L10n.text("cpu.coreCount", language: language, arguments: [ProcessInfo.processInfo.processorCount]) }
-        return coreGroups.map { L10n.text($0.0, language: language, arguments: [$0.1]) }.joined(separator: " + ")
+        if coreGroups.isEmpty {
+            return L10n.text(
+                "cpu.coreCount", language: language, arguments: [ProcessInfo.processInfo.processorCount])
+        }
+        return coreGroups.map { L10n.text($0.0, language: language, arguments: [$0.1]) }.joined(
+            separator: " + ")
     }
 
     private static func read(_ name: String) -> String? {

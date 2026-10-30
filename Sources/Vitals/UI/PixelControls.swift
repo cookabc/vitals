@@ -42,7 +42,9 @@ struct PixelToggleStyle: ToggleStyle {
     }
 
     func makeBody(configuration: Configuration) -> some View {
-        Button { configuration.isOn.toggle() } label: {
+        Button {
+            configuration.isOn.toggle()
+        } label: {
             HStack(spacing: 8) {
                 ZStack {
                     Rectangle().strokeBorder(PixelPalette.edge, lineWidth: 1).frame(width: 14, height: 14)
@@ -69,7 +71,9 @@ struct PixelChoice<Value: Hashable>: View {
         HStack(spacing: 4) {
             ForEach(options.indices, id: \.self) { index in
                 let option = options[index]
-                Button { selection = option.1 } label: {
+                Button {
+                    selection = option.1
+                } label: {
                     Text(option.0).frame(maxWidth: .infinity).padding(.vertical, 7)
                         .foregroundStyle(selection == option.1 ? PixelPalette.background : PixelPalette.muted)
                         .background(selection == option.1 ? PixelPalette.cyan : PixelPalette.track)

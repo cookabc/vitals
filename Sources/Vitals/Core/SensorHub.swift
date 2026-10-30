@@ -82,13 +82,15 @@ final class SensorHub {
     private var observers: [NSObjectProtocol] = []
     private let preferences: UserDefaults
     private let readGPU: @MainActor () async -> [GPUStats]
-    private let readProcesses: @MainActor ([pid_t: RawProcess], TimeInterval) async ->
-        (top: [ProcessSample], snapshot: [pid_t: RawProcess])
+    private let readProcesses:
+        @MainActor ([pid_t: RawProcess], TimeInterval) async ->
+            (top: [ProcessSample], snapshot: [pid_t: RawProcess])
 
     init(
         preferences: UserDefaults = .standard,
         readGPU: @escaping @MainActor () async -> [GPUStats] = { await HeavySampler.gpuDevices() },
-        readProcesses: @escaping @MainActor ([pid_t: RawProcess], TimeInterval) async ->
+        readProcesses:
+            @escaping @MainActor ([pid_t: RawProcess], TimeInterval) async ->
             (top: [ProcessSample], snapshot: [pid_t: RawProcess]) = {
                 await HeavySampler.rankedProcesses(previous: $0, interval: $1)
             }
@@ -141,7 +143,8 @@ final class SensorHub {
     }
 
     func requestNotificationAuthorization() async -> Bool {
-        (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
+        (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]))
+            ?? false
     }
 
     func refreshBattery() {
@@ -170,15 +173,17 @@ final class SensorHub {
     private func tickOnce() async {
         let measurement = TickMeasurement()
         #if DEBUG
-        let signpostID = OSSignpostID(log: Self.perfLog)
-        let startNano = DispatchTime.now().uptimeNanoseconds
-        os_signpost(.begin, log: Self.perfLog, name: "tick", signpostID: signpostID)
-        await performTick(measurement: measurement)
-        os_signpost(.end, log: Self.perfLog, name: "tick", signpostID: signpostID)
-        let totalMicros = Int((DispatchTime.now().uptimeNanoseconds - startNano) / 1000)
-        Self.logger.info("tick total_us=\(totalMicros) off_us=\(measurement.offThreadMicros) main_us=\(totalMicros - measurement.offThreadMicros)")
+            let signpostID = OSSignpostID(log: Self.perfLog)
+            let startNano = DispatchTime.now().uptimeNanoseconds
+            os_signpost(.begin, log: Self.perfLog, name: "tick", signpostID: signpostID)
+            await performTick(measurement: measurement)
+            os_signpost(.end, log: Self.perfLog, name: "tick", signpostID: signpostID)
+            let totalMicros = Int((DispatchTime.now().uptimeNanoseconds - startNano) / 1000)
+            Self.logger.info(
+                "tick total_us=\(totalMicros) off_us=\(measurement.offThreadMicros) main_us=\(totalMicros - measurement.offThreadMicros)"
+            )
         #else
-        await performTick(measurement: measurement)
+            await performTick(measurement: measurement)
         #endif
     }
 
@@ -189,12 +194,12 @@ final class SensorHub {
 
         func measure<T>(_ work: () async -> T) async -> T {
             #if DEBUG
-            let start = DispatchTime.now().uptimeNanoseconds
-            let value = await work()
-            offThreadMicros += Int((DispatchTime.now().uptimeNanoseconds - start) / 1000)
-            return value
+                let start = DispatchTime.now().uptimeNanoseconds
+                let value = await work()
+                offThreadMicros += Int((DispatchTime.now().uptimeNanoseconds - start) / 1000)
+                return value
             #else
-            return await work()
+                return await work()
             #endif
         }
     }
@@ -257,7 +262,9 @@ final class SensorHub {
             if previousID != gpu?.id { gpuHistory.removeAll(keepingCapacity: true) }
             if let value = gpu?.utilization {
                 gpuHistory.append(TimedSample(t: now, v: value))
-                if gpuHistory.count > Self.historyCapacity { gpuHistory.removeFirst(gpuHistory.count - Self.historyCapacity) }
+                if gpuHistory.count > Self.historyCapacity {
+                    gpuHistory.removeFirst(gpuHistory.count - Self.historyCapacity)
+                }
             } else {
                 gpuHistory.removeAll(keepingCapacity: true)
             }
@@ -339,24 +346,27 @@ final class SensorHub {
         let request = UNNotificationRequest(identifier: event.id, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request) { error in
             if let error {
-                Self.logger.error("Failed to send notification: \(error.localizedDescription, privacy: .public)")
+                Self.logger.error(
+                    "Failed to send notification: \(error.localizedDescription, privacy: .public)")
             }
         }
     }
 
     private func observeSystemChanges() {
         let center = NotificationCenter.default
-        observers.append(center.addObserver(
-            forName: ProcessInfo.thermalStateDidChangeNotification,
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.thermalState = ProcessInfo.processInfo.thermalState }
-        })
-        observers.append(center.addObserver(
-            forName: NSNotification.Name.NSProcessInfoPowerStateDidChange,
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.refreshBattery() }
-        })
+        observers.append(
+            center.addObserver(
+                forName: ProcessInfo.thermalStateDidChangeNotification,
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.thermalState = ProcessInfo.processInfo.thermalState }
+            })
+        observers.append(
+            center.addObserver(
+                forName: NSNotification.Name.NSProcessInfoPowerStateDidChange,
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in self?.refreshBattery() }
+            })
     }
 }

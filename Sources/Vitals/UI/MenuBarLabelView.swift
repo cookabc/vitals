@@ -37,11 +37,12 @@ struct MenuBarLabelView: View {
         let mode = MenubarMode(rawValue: modeRaw) ?? .graphAndText
         HStack(spacing: 4) {
             if mode.showsGraph {
-                Image(nsImage: SparklineRenderer.image(
-                    values: hub.cpuHistory.map(\.v),
-                    size: CGSize(width: 32, height: 16),
-                    color: NSColor(VitalsTheme.loadColor(hub.cpuTotal))
-                ))
+                Image(
+                    nsImage: SparklineRenderer.image(
+                        values: hub.cpuHistory.map(\.v),
+                        size: CGSize(width: 32, height: 16),
+                        color: NSColor(VitalsTheme.loadColor(hub.cpuTotal))
+                    ))
             }
             if mode.showsText {
                 Text("\(Int(hub.cpuTotal.rounded()))%")
@@ -56,8 +57,15 @@ struct MenuBarLabelView: View {
             }
         }
         .fixedSize()
-        .help(tr("menu.status", Int(hub.cpuTotal.rounded()), tr(hub.isPaused ? "state.paused" : "state.monitoring")))
+        .help(
+            tr(
+                "menu.status", Int(hub.cpuTotal.rounded()),
+                tr(hub.isPaused ? "state.paused" : "state.monitoring"))
+        )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(tr("menu.status", Int(hub.cpuTotal.rounded()), tr(hub.isPaused ? "state.paused" : "state.monitoring")))
+        .accessibilityLabel(
+            tr(
+                "menu.status", Int(hub.cpuTotal.rounded()),
+                tr(hub.isPaused ? "state.paused" : "state.monitoring")))
     }
 }

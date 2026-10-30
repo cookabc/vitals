@@ -45,8 +45,9 @@ enum VitalsTheme {
 
 private extension Color {
     init(light: NSColor, dark: NSColor) {
-        self.init(nsColor: NSColor(name: nil) { appearance in
-            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
-        })
+        self.init(
+            nsColor: NSColor(name: nil) { appearance in
+                appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? dark : light
+            })
     }
 }

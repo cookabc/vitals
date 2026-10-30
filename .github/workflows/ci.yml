@@ -26,10 +26,26 @@ jobs:
           for script in scripts/*.sh; do bash -n "$script"; done
       - name: Toolchain
         run: swift --version
+      # xcodegen is small and the brew formula is stable, so caching the binary
+      # avoids a 1-2 minute install on every run.
+      - name: Cache xcodegen
+        id: xcodegen-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.local/bin/xcodegen
+          key: xcodegen-2.44.1
       - name: Install project generator
-        run: brew install xcodegen
+        if: steps.xcodegen-cache.outputs.cache-hit != 'true'
+        run: |
+          brew install xcodegen
+          mkdir -p ~/.local/bin
+          cp "$(command -v xcodegen)" ~/.local/bin/xcodegen
       - name: Generate project
-        run: xcodegen generate
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          xcodegen generate
+      - name: Lint formatting
+        run: xcrun swift-format lint --strict --recursive Sources Tests
       - name: Test
         run: xcodebuild test -project Vitals.xcodeproj -scheme Vitals -destination 'platform=macOS,arch=arm64' -derivedDataPath .build/DerivedData
       - name: Package local app

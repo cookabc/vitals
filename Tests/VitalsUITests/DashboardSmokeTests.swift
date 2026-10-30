@@ -26,8 +26,9 @@ final class DashboardSmokeTests: XCTestCase {
             app.launchArguments = ["--debug-panel", "-samplingInterval", "1"]
             app.launch()
             // 面板窗口必须先出现，否则后续断言全是在测启动失败。
-            XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 15),
-                          "debug-panel 窗口未出现：确认以 Debug 配置构建，且 --debug-panel 钩子仍生效")
+            XCTAssertTrue(
+                app.windows.firstMatch.waitForExistence(timeout: 15),
+                "debug-panel 窗口未出现：确认以 Debug 配置构建，且 --debug-panel 钩子仍生效")
         }
     }
 

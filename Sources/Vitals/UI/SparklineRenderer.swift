@@ -4,7 +4,8 @@ import AppKit
 enum SparklineRenderer {
     static func image(values: [Double], size: CGSize, color: NSColor) -> NSImage {
         let samples = Array(values.suffix(120).map { min(100, max(0, $0)) })
-        let sRGB = color.usingColorSpace(.sRGB)?.cgColor
+        let sRGB =
+            color.usingColorSpace(.sRGB)?.cgColor
             ?? CGColor(red: 0.31, green: 0.66, blue: 1.0, alpha: 1)
         let image = NSImage(size: size, flipped: false) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return true }
@@ -39,7 +40,9 @@ enum SparklineRenderer {
                 locations: [0, 1]
             )
             context.drawLinearGradient(
-                gradient ?? CGGradient(colorSpace: CGColorSpaceCreateDeviceRGB(), colorComponents: [0, 0, 0, 0, 0, 0, 0, 0], locations: [0, 1], count: 2)!,
+                gradient ?? CGGradient(
+                    colorSpace: CGColorSpaceCreateDeviceRGB(), colorComponents: [0, 0, 0, 0, 0, 0, 0, 0],
+                    locations: [0, 1], count: 2)!,
                 start: CGPoint(x: rect.midX, y: rect.minY),
                 end: CGPoint(x: rect.midX, y: rect.maxY),
                 options: []

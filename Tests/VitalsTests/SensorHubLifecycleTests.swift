@@ -35,10 +35,11 @@ struct SensorHubLifecycleTests {
 
     private func preferences(gpu: Bool, processes: Bool) -> UserDefaults {
         let defaults = UserDefaults(suiteName: "VitalsLifecycle-\(UUID().uuidString)")!
-        defaults.setVolatileDomain([
-            "samplingInterval": 2.0, "showGPU": gpu, "showProcesses": processes,
-            "showDiskActivity": false, "alertsEnabled": false
-        ], forName: UserDefaults.argumentDomain)
+        defaults.setVolatileDomain(
+            [
+                "samplingInterval": 2.0, "showGPU": gpu, "showProcesses": processes,
+                "showDiskActivity": false, "alertsEnabled": false,
+            ], forName: UserDefaults.argumentDomain)
         return defaults
     }
 
@@ -51,19 +52,23 @@ struct SensorHubLifecycleTests {
     }
 
     private func gpu(_ id: UInt64) -> GPUStats {
-        GPUStats(id: id, utilization: 25, renderer: nil, tiler: nil,
-                 memoryInUse: nil, memoryAllocated: nil)
+        GPUStats(
+            id: id, utilization: 25, renderer: nil, tiler: nil,
+            memoryInUse: nil, memoryAllocated: nil)
     }
 
     private func process(_ pid: pid_t) -> ProcessResult {
-        ([ProcessSample(pid: pid, name: "fixture", cpuPercent: 25, residentBytes: 100)],
-         [pid: RawProcess(userTime: 1, systemTime: 1, residentBytes: 100, name: "fixture")])
+        (
+            [ProcessSample(pid: pid, name: "fixture", cpuPercent: 25, residentBytes: 100)],
+            [pid: RawProcess(userTime: 1, systemTime: 1, residentBytes: 100, name: "fixture")]
+        )
     }
 
     @Test("Pausing discards a GPU read already in flight")
     func pauseDuringGPURead() async throws {
         let gate = Gate<[GPUStats]>()
-        let hub = SensorHub(preferences: preferences(gpu: true, processes: false), readGPU: { await gate.read() })
+        let hub = SensorHub(
+            preferences: preferences(gpu: true, processes: false), readGPU: { await gate.read() })
         defer { hub.stop(); gate.finishAll(with: []) }
         hub.start()
         try await waitUntil { gate.calls == 1 }
@@ -81,8 +86,9 @@ struct SensorHubLifecycleTests {
     @Test("Pausing discards a process read already in flight")
     func pauseDuringProcessRead() async throws {
         let gate = Gate<ProcessResult>()
-        let hub = SensorHub(preferences: preferences(gpu: false, processes: true),
-                            readProcesses: { _, _ in await gate.read() })
+        let hub = SensorHub(
+            preferences: preferences(gpu: false, processes: true),
+            readProcesses: { _, _ in await gate.read() })
         defer { hub.stop(); gate.finishAll(with: ([], [:])) }
         hub.start()
         try await waitUntil { gate.calls == 1 }
@@ -98,7 +104,8 @@ struct SensorHubLifecycleTests {
     @Test("An old GPU read cannot overwrite a resumed sample")
     func resumeDuringGPURead() async throws {
         let gate = Gate<[GPUStats]>()
-        let hub = SensorHub(preferences: preferences(gpu: true, processes: false), readGPU: { await gate.read() })
+        let hub = SensorHub(
+            preferences: preferences(gpu: true, processes: false), readGPU: { await gate.read() })
         defer { hub.stop(); gate.finishAll(with: []) }
         hub.start()
         try await waitUntil { gate.calls == 1 }
@@ -120,10 +127,12 @@ struct SensorHubLifecycleTests {
     func resumeDuringProcessRead() async throws {
         let gate = Gate<ProcessResult>()
         var previousCounts: [Int] = []
-        let hub = SensorHub(preferences: preferences(gpu: false, processes: true), readProcesses: { old, _ in
-            previousCounts.append(old.count)
-            return await gate.read()
-        })
+        let hub = SensorHub(
+            preferences: preferences(gpu: false, processes: true),
+            readProcesses: { old, _ in
+                previousCounts.append(old.count)
+                return await gate.read()
+            })
         defer { hub.stop(); gate.finishAll(with: ([], [:])) }
         hub.start()
         try await waitUntil { gate.calls == 1 }
@@ -144,19 +153,21 @@ struct SensorHubLifecycleTests {
     @Test("Resume interrupts the interval sleep and samples exactly once")
     func resumeDuringSleep() async throws {
         var calls = 0
-        let hub = SensorHub(preferences: preferences(gpu: true, processes: false), readGPU: {
-            calls += 1
-            return []
-        })
+        let hub = SensorHub(
+            preferences: preferences(gpu: true, processes: false),
+            readGPU: {
+                calls += 1
+                return []
+            })
         defer { hub.stop() }
         let initial = hub.lastUpdated
         hub.start()
-        hub.start() // Repeated starts must not create a second loop.
+        hub.start()  // Repeated starts must not create a second loop.
         try await waitUntil { hub.lastUpdated != initial }
         try await Task.sleep(for: .milliseconds(50))
         hub.togglePause()
         hub.togglePause()
-        try await waitUntil { calls == 2 } // Well before the old 2 s sleep would end.
+        try await waitUntil { calls == 2 }  // Well before the old 2 s sleep would end.
         try await Task.sleep(for: .milliseconds(200))
         #expect(calls == 2, "Resume must not produce two back-to-back samples")
         try await waitForNextInterval { calls >= 3 }

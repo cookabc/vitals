@@ -17,20 +17,21 @@ struct PixelText: View {
 
     var body: some View {
         if Self.supportsBitmap(text) {
-        Canvas { context, _ in
-            for (index, character) in text.uppercased().enumerated() {
-                let rows = Self.glyphs[character] ?? Self.glyphs["?"]!
-                for (y, row) in rows.enumerated() {
-                    for x in 0..<5 where row & (1 << (4 - x)) != 0 {
-                        let rect = CGRect(x: CGFloat(index * 6 + x) * scale, y: CGFloat(y) * scale,
-                                          width: scale, height: scale)
-                        context.fill(Path(rect), with: .color(color))
+            Canvas { context, _ in
+                for (index, character) in text.uppercased().enumerated() {
+                    let rows = Self.glyphs[character] ?? Self.glyphs["?"]!
+                    for (y, row) in rows.enumerated() {
+                        for x in 0..<5 where row & (1 << (4 - x)) != 0 {
+                            let rect = CGRect(
+                                x: CGFloat(index * 6 + x) * scale, y: CGFloat(y) * scale,
+                                width: scale, height: scale)
+                            context.fill(Path(rect), with: .color(color))
+                        }
                     }
                 }
             }
-        }
-        .frame(width: CGFloat(max(0, text.count * 6 - 1)) * scale, height: 7 * scale)
-        .accessibilityLabel(text)
+            .frame(width: CGFloat(max(0, text.count * 6 - 1)) * scale, height: 7 * scale)
+            .accessibilityLabel(text)
         } else {
             Text(verbatim: text)
                 .font(.system(size: 11 * scale, weight: .semibold, design: .monospaced))
@@ -41,27 +42,27 @@ struct PixelText: View {
     }
 
     private static let glyphs: [Character: [Int]] = [
-        "A": [14,17,17,31,17,17,17], "B": [30,17,17,30,17,17,30],
-        "C": [14,17,16,16,16,17,14], "D": [30,17,17,17,17,17,30],
-        "E": [31,16,16,30,16,16,31], "F": [31,16,16,30,16,16,16],
-        "G": [14,17,16,23,17,17,15], "H": [17,17,17,31,17,17,17],
-        "I": [31,4,4,4,4,4,31], "J": [7,2,2,2,2,18,12],
-        "K": [17,18,20,24,20,18,17], "L": [16,16,16,16,16,16,31],
-        "M": [17,27,21,21,17,17,17], "N": [17,25,21,19,17,17,17],
-        "O": [14,17,17,17,17,17,14], "P": [30,17,17,30,16,16,16],
-        "Q": [14,17,17,17,21,18,13], "R": [30,17,17,30,20,18,17],
-        "S": [15,16,16,14,1,1,30], "T": [31,4,4,4,4,4,4],
-        "U": [17,17,17,17,17,17,14], "V": [17,17,17,17,17,10,4],
-        "W": [17,17,17,21,21,21,10], "X": [17,17,10,4,10,17,17],
-        "Y": [17,17,10,4,4,4,4], "Z": [31,1,2,4,8,16,31],
-        "0": [14,17,19,21,25,17,14], "1": [4,12,4,4,4,4,14],
-        "2": [14,17,1,2,4,8,31], "3": [30,1,1,14,1,1,30],
-        "4": [2,6,10,18,31,2,2], "5": [31,16,16,30,1,1,30],
-        "6": [14,16,16,30,17,17,14], "7": [31,1,2,4,8,8,8],
-        "8": [14,17,17,14,17,17,14], "9": [14,17,17,15,1,1,14],
-        "%": [17,2,4,4,8,16,17], "-": [0,0,0,31,0,0,0],
-        ".": [0,0,0,0,0,12,12], "/": [1,2,2,4,8,8,16],
-        " ": [0,0,0,0,0,0,0], "?": [14,17,1,2,4,0,4],
+        "A": [14, 17, 17, 31, 17, 17, 17], "B": [30, 17, 17, 30, 17, 17, 30],
+        "C": [14, 17, 16, 16, 16, 17, 14], "D": [30, 17, 17, 17, 17, 17, 30],
+        "E": [31, 16, 16, 30, 16, 16, 31], "F": [31, 16, 16, 30, 16, 16, 16],
+        "G": [14, 17, 16, 23, 17, 17, 15], "H": [17, 17, 17, 31, 17, 17, 17],
+        "I": [31, 4, 4, 4, 4, 4, 31], "J": [7, 2, 2, 2, 2, 18, 12],
+        "K": [17, 18, 20, 24, 20, 18, 17], "L": [16, 16, 16, 16, 16, 16, 31],
+        "M": [17, 27, 21, 21, 17, 17, 17], "N": [17, 25, 21, 19, 17, 17, 17],
+        "O": [14, 17, 17, 17, 17, 17, 14], "P": [30, 17, 17, 30, 16, 16, 16],
+        "Q": [14, 17, 17, 17, 21, 18, 13], "R": [30, 17, 17, 30, 20, 18, 17],
+        "S": [15, 16, 16, 14, 1, 1, 30], "T": [31, 4, 4, 4, 4, 4, 4],
+        "U": [17, 17, 17, 17, 17, 17, 14], "V": [17, 17, 17, 17, 17, 10, 4],
+        "W": [17, 17, 17, 21, 21, 21, 10], "X": [17, 17, 10, 4, 10, 17, 17],
+        "Y": [17, 17, 10, 4, 4, 4, 4], "Z": [31, 1, 2, 4, 8, 16, 31],
+        "0": [14, 17, 19, 21, 25, 17, 14], "1": [4, 12, 4, 4, 4, 4, 14],
+        "2": [14, 17, 1, 2, 4, 8, 31], "3": [30, 1, 1, 14, 1, 1, 30],
+        "4": [2, 6, 10, 18, 31, 2, 2], "5": [31, 16, 16, 30, 1, 1, 30],
+        "6": [14, 16, 16, 30, 17, 17, 14], "7": [31, 1, 2, 4, 8, 8, 8],
+        "8": [14, 17, 17, 14, 17, 17, 14], "9": [14, 17, 17, 15, 1, 1, 14],
+        "%": [17, 2, 4, 4, 8, 16, 17], "-": [0, 0, 0, 31, 0, 0, 0],
+        ".": [0, 0, 0, 0, 0, 12, 12], "/": [1, 2, 2, 4, 8, 8, 16],
+        " ": [0, 0, 0, 0, 0, 0, 0], "?": [14, 17, 1, 2, 4, 0, 4],
     ]
 }
 
@@ -78,10 +79,11 @@ enum PixelMachinePlate {
 
     private static func raster() -> CGImage {
         let space = CGColorSpace(name: CGColorSpace.sRGB)!
-        let context = CGContext(data: nil,
-                                width: Int(pixelSize.width), height: Int(pixelSize.height),
-                                bitsPerComponent: 8, bytesPerRow: 0, space: space,
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let context = CGContext(
+            data: nil,
+            width: Int(pixelSize.width), height: Int(pixelSize.height),
+            bitsPerComponent: 8, bytesPerRow: 0, space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
         // CGContext 原点在左下，翻转成与 Canvas 一致的 y 轴向下。
         context.translateBy(x: 0, y: pixelSize.height)
         context.scaleBy(x: 1, y: -1)
@@ -92,10 +94,18 @@ enum PixelMachinePlate {
             p.closeSubpath()
             return p
         }
-        let top = shape([CGPoint(x: 18, y: 48), CGPoint(x: 80, y: 18), CGPoint(x: 146, y: 48), CGPoint(x: 84, y: 80)])
-        let front = shape([CGPoint(x: 18, y: 48), CGPoint(x: 84, y: 80), CGPoint(x: 84, y: 101), CGPoint(x: 18, y: 69)])
-        let side = shape([CGPoint(x: 84, y: 80), CGPoint(x: 146, y: 48), CGPoint(x: 146, y: 69), CGPoint(x: 84, y: 101)])
-        let shadow = shape([CGPoint(x: 14, y: 75), CGPoint(x: 78, y: 104), CGPoint(x: 154, y: 72), CGPoint(x: 91, y: 53)])
+        let top = shape([
+            CGPoint(x: 18, y: 48), CGPoint(x: 80, y: 18), CGPoint(x: 146, y: 48), CGPoint(x: 84, y: 80),
+        ])
+        let front = shape([
+            CGPoint(x: 18, y: 48), CGPoint(x: 84, y: 80), CGPoint(x: 84, y: 101), CGPoint(x: 18, y: 69),
+        ])
+        let side = shape([
+            CGPoint(x: 84, y: 80), CGPoint(x: 146, y: 48), CGPoint(x: 146, y: 69), CGPoint(x: 84, y: 101),
+        ])
+        let shadow = shape([
+            CGPoint(x: 14, y: 75), CGPoint(x: 78, y: 104), CGPoint(x: 154, y: 72), CGPoint(x: 91, y: 53),
+        ])
 
         let shadowColor = srgb(0, 0, 0, 0.55)
         let sideColor = srgb(0.47, 0.35, 0.18)
@@ -126,7 +136,10 @@ enum PixelMachinePlate {
         }
         // 顶面上的蚀刻脉冲，与负载无关，属于静态纹理。
         context.setFillColor(pulseColor)
-        for (x, y) in [(60,46),(62,46),(64,48),(66,50),(68,52),(70,50),(72,48),(74,46),(76,44),(78,46),(80,48),(82,48)] {
+        for (x, y) in [
+            (60, 46), (62, 46), (64, 48), (66, 50), (68, 52), (70, 50), (72, 48), (74, 46), (76, 44),
+            (78, 46), (80, 48), (82, 48),
+        ] {
             context.fill(CGRect(x: x, y: y, width: 2, height: 2))
         }
         return context.makeImage()!
@@ -147,13 +160,16 @@ struct PixelMachineArt: View {
             // 只有状态灯与活动粒子随真实读数变化，逐帧重画这一小层。
             Canvas { context, size in
                 let offset = floor((size.width - PixelMachinePlate.pixelSize.width) / 2)
-                context.fill(Path(CGRect(x: offset + 91, y: 89, width: 4, height: 2)),
-                             with: .color(paused ? PixelPalette.yellow : PixelPalette.cyan))
+                context.fill(
+                    Path(CGRect(x: offset + 91, y: 89, width: 4, height: 2)),
+                    with: .color(paused ? PixelPalette.yellow : PixelPalette.cyan))
                 for index in 0..<12 {
                     let x = 91 + (index * 17) % 57
                     let y = 12 + (index * 11) % 24
-                    context.fill(Path(CGRect(x: offset + CGFloat(x), y: CGFloat(y), width: 2, height: 2)),
-                                 with: .color(PixelPalette.yellow.opacity(index < Int(load / 9) && !paused ? 0.7 : 0.12)))
+                    context.fill(
+                        Path(CGRect(x: offset + CGFloat(x), y: CGFloat(y), width: 2, height: 2)),
+                        with: .color(
+                            PixelPalette.yellow.opacity(index < Int(load / 9) && !paused ? 0.7 : 0.12)))
                 }
             }
         }

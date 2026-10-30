@@ -49,9 +49,14 @@ import Testing
 @Test func alertEngineRequiresSustainedHighCPU() {
     var engine = AlertEngine()
     let start = Date(timeIntervalSince1970: 1_000_000)
-    #expect(engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start).isEmpty)
-    #expect(engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(29)).isEmpty)
-    let fired = engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(31))
+    #expect(
+        engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start).isEmpty)
+    #expect(
+        engine.evaluate(
+            cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(29)
+        ).isEmpty)
+    let fired = engine.evaluate(
+        cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(31))
     #expect(fired.map(\.id) == ["cpu"])
 }
 
@@ -59,8 +64,10 @@ import Testing
     var engine = AlertEngine()
     let start = Date(timeIntervalSince1970: 2_000_000)
     _ = engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start)
-    _ = engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(31))
-    let again = engine.evaluate(cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(61))
+    _ = engine.evaluate(
+        cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(31))
+    let again = engine.evaluate(
+        cpuPercent: 95, diskUsedFraction: 0.1, thermalState: .nominal, now: start.addingTimeInterval(61))
     #expect(again.isEmpty)
 }
 
@@ -114,8 +121,11 @@ import Testing
 
 @Test func cpuMathRejectsMismatchedArraysAndCounterReset() {
     let old = CPUTicks(user: [100], system: [100], idle: [100], nice: [0])
-    #expect(CPUMath.totalPercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0])) == nil)
-    #expect(CPUMath.perCorePercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0])).isEmpty)
+    #expect(
+        CPUMath.totalPercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0])) == nil)
+    #expect(
+        CPUMath.perCorePercent(old: old, new: CPUTicks(user: [120], system: [], idle: [120], nice: [0]))
+            .isEmpty)
     #expect(CPUMath.breakdown(old: old, new: CPUTicks(user: [1], system: [1], idle: [1], nice: [0])) == nil)
 }
 
@@ -130,13 +140,18 @@ import Testing
         2: DiskCounters(readBytes: 600, writtenBytes: 800, reads: 24, writes: 24),
         4: DiskCounters(readBytes: 900_000, writtenBytes: 900_000, reads: 90, writes: 90),
     ]
-    #expect(DiskMath.activity(old: old, new: new, interval: 2) ==
-            DiskActivity(readRate: 300, writeRate: 500, readsPerSecond: 4, writesPerSecond: 6))
+    #expect(
+        DiskMath.activity(old: old, new: new, interval: 2)
+            == DiskActivity(readRate: 300, writeRate: 500, readsPerSecond: 4, writesPerSecond: 6))
 }
 
 @Test func diskRatesDistinguishIdleUnavailableAndReset() {
-    let values: [UInt64: DiskCounters] = [1: DiskCounters(readBytes: 100, writtenBytes: 100, reads: 10, writes: 10)]
-    let reset: [UInt64: DiskCounters] = [1: DiskCounters(readBytes: 10, writtenBytes: 10, reads: 1, writes: 1)]
+    let values: [UInt64: DiskCounters] = [
+        1: DiskCounters(readBytes: 100, writtenBytes: 100, reads: 10, writes: 10)
+    ]
+    let reset: [UInt64: DiskCounters] = [
+        1: DiskCounters(readBytes: 10, writtenBytes: 10, reads: 1, writes: 1)
+    ]
     #expect(DiskMath.activity(old: values, new: values, interval: 1)?.readRate == 0)
     #expect(DiskMath.activity(old: values, new: reset, interval: 1) == nil)
     #expect(DiskMath.activity(old: [:], new: values, interval: 1) == nil)
@@ -168,8 +183,12 @@ import Testing
 @Test func processTimeConvertsMachTicksToNanoseconds() {
     #expect(ProcessSampler.nanoseconds(24_000_000, numerator: 125, denominator: 3) == 1_000_000_000)
     #expect(ProcessSampler.nanoseconds(1_000_000_000, numerator: 1, denominator: 1) == 1_000_000_000)
-    let old: [pid_t: RawProcess] = [1: RawProcess(userTime: 1_000, systemTime: 1_000, residentBytes: 1, name: "old")]
-    let reset: [pid_t: RawProcess] = [1: RawProcess(userTime: 0, systemTime: 0, residentBytes: 1, name: "new")]
+    let old: [pid_t: RawProcess] = [
+        1: RawProcess(userTime: 1_000, systemTime: 1_000, residentBytes: 1, name: "old")
+    ]
+    let reset: [pid_t: RawProcess] = [
+        1: RawProcess(userTime: 0, systemTime: 0, residentBytes: 1, name: "new")
+    ]
     #expect(ProcessSampler.topProcesses(old: old, new: reset, interval: 1).isEmpty)
 }
 
@@ -190,8 +209,12 @@ import Testing
 }
 
 @Test func gpuRejectsInvalidDriverValues() {
-    let gpu = GPUStats.parse(id: 1, statistics: ["Device Utilization %": 101, "Renderer Utilization %": -1,
-                                               "Tiler Utilization %": Double.nan, "Alloc system memory": -99])
+    let gpu = GPUStats.parse(
+        id: 1,
+        statistics: [
+            "Device Utilization %": 101, "Renderer Utilization %": -1,
+            "Tiler Utilization %": Double.nan, "Alloc system memory": -99,
+        ])
     #expect(gpu.utilization == nil)
     #expect(gpu.renderer == nil)
     #expect(gpu.tiler == nil)
@@ -208,9 +231,12 @@ import Testing
 
 @Test func localizationResourcesMatchAndContainNoEnglishChineseMix() throws {
     func table(_ language: String) throws -> [String: String] {
-        let path = try #require(Bundle.main.path(forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language))
+        let path = try #require(
+            Bundle.main.path(
+                forResource: "Localizable", ofType: "strings", inDirectory: nil, forLocalization: language))
         let data = try Data(contentsOf: URL(fileURLWithPath: path))
-        return try #require(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: String])
+        return try #require(
+            PropertyListSerialization.propertyList(from: data, format: nil) as? [String: String])
     }
     let en = try table("en")
     let zh = try table("zh-Hans")
@@ -222,7 +248,9 @@ import Testing
         let format = try NSRegularExpression(pattern: #"%(?:\d+\$)?(?:llu|ld|d|@|f|%)"#)
         func placeholders(_ value: String) -> [String] {
             let string = value as NSString
-            return format.matches(in: value, range: NSRange(location: 0, length: string.length)).map { string.substring(with: $0.range) }
+            return format.matches(in: value, range: NSRange(location: 0, length: string.length)).map {
+                string.substring(with: $0.range)
+            }
         }
         #expect(placeholders(en[key]!) == placeholders(zh[key]!))
     }

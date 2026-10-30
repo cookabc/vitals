@@ -4,11 +4,13 @@ import IOKit.ps
 enum BatteryReader {
     static func read() -> BatteryInfo? {
         guard let snapshot = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-              let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef]
+            let sources = IOPSCopyPowerSourcesList(snapshot)?.takeRetainedValue() as? [CFTypeRef]
         else { return nil }
         for source in sources {
-            guard let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue() as? [String: Any],
-                  description[kIOPSTypeKey] as? String == kIOPSInternalBatteryType
+            guard
+                let description = IOPSGetPowerSourceDescription(snapshot, source)?.takeUnretainedValue()
+                    as? [String: Any],
+                description[kIOPSTypeKey] as? String == kIOPSInternalBatteryType
             else { continue }
             let isCharging = description[kIOPSIsChargingKey] as? Bool ?? false
             let isAC = description[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue

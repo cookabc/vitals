@@ -28,9 +28,10 @@ struct DashboardRenderTests {
 
         guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
             Issue.record("无法为面板创建缓存位图，渲染路径未验证")
-            return NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8,
-                                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-                                    colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+            return NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: 1, pixelsHigh: 1, bitsPerSample: 8,
+                samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
         }
         host.cacheDisplay(in: host.bounds, to: rep)
         window.contentView = nil
@@ -47,7 +48,8 @@ struct DashboardRenderTests {
             var y = 0
             while y < h {
                 if let c = rep.colorAt(x: x, y: y) {
-                    let delta = abs(c.redComponent - base.redComponent)
+                    let delta =
+                        abs(c.redComponent - base.redComponent)
                         + abs(c.greenComponent - base.greenComponent)
                         + abs(c.blueComponent - base.blueComponent)
                     if delta > 0.12 { inked += 1 }
@@ -66,7 +68,8 @@ struct DashboardRenderTests {
         for x in stride(from: 0, to: w, by: 2) {
             for y in stride(from: 0, to: h, by: 2) {
                 guard let ca = a.colorAt(x: x, y: y), let cb = b.colorAt(x: x, y: y) else { continue }
-                let delta = abs(ca.redComponent - cb.redComponent)
+                let delta =
+                    abs(ca.redComponent - cb.redComponent)
                     + abs(ca.greenComponent - cb.greenComponent)
                     + abs(ca.blueComponent - cb.blueComponent)
                 if delta > 0.12 { differs += 1 }
@@ -107,8 +110,9 @@ struct DashboardRenderTests {
         #expect(rep.pixelsWide == 160 && rep.pixelsHigh == 112)
         let topFace = try #require(rep.colorAt(x: 80, y: 26)?.usingColorSpace(.sRGB))
         let frontFace = try #require(rep.colorAt(x: 80, y: 86)?.usingColorSpace(.sRGB))
-        #expect(topFace.blueComponent > frontFace.blueComponent + 0.05,
-                "顶面 b=\(topFace.blueComponent) 未高于正面 b=\(frontFace.blueComponent)，机身位图可能上下颠倒")
+        #expect(
+            topFace.blueComponent > frontFace.blueComponent + 0.05,
+            "顶面 b=\(topFace.blueComponent) 未高于正面 b=\(frontFace.blueComponent)，机身位图可能上下颠倒")
     }
 
     /// 渲染耗时基线。上限是先宽后紧：拿到真实分布后再逐次压低，用作回归门禁。

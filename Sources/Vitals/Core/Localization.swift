@@ -25,7 +25,7 @@ enum L10n {
     /// 面板一帧要取几十条文案与读数，Locale 每种语言只在进程内构造一次。
     private static let locales: [AppLanguage: Locale] = [
         .english: Locale(identifier: "en_\(region)"),
-        .simplifiedChinese: Locale(identifier: "zh_Hans_\(region)")
+        .simplifiedChinese: Locale(identifier: "zh_Hans_\(region)"),
     ]
 
     static func locale(for language: AppLanguage) -> Locale {
@@ -34,7 +34,8 @@ enum L10n {
     }
 
     private static func localizedBundle(_ code: String) -> Bundle {
-        guard let path = Bundle.main.path(forResource: code, ofType: "lproj"), let bundle = Bundle(path: path) else { return .main }
+        guard let path = Bundle.main.path(forResource: code, ofType: "lproj"), let bundle = Bundle(path: path)
+        else { return .main }
         return bundle
     }
 
@@ -44,6 +45,7 @@ enum L10n {
         let bundle = resolved == .simplifiedChinese ? chinese : english
         let format = bundle.localizedString(forKey: key, value: key, table: "Localizable")
         guard !arguments.isEmpty else { return format }
-        return String(format: format, locale: locales[resolved] ?? locale(for: language), arguments: arguments)
+        return String(
+            format: format, locale: locales[resolved] ?? locale(for: language), arguments: arguments)
     }
 }

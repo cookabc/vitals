@@ -9,7 +9,8 @@ import Foundation
 ///
 /// 主线程只接收已经算好的值类型结果。
 enum HeavySampler {
-    nonisolated private static let queue = DispatchQueue(label: "com.cookabc.vitals.heavy-sampling", qos: .utility)
+    nonisolated private static let queue = DispatchQueue(
+        label: "com.cookabc.vitals.heavy-sampling", qos: .utility)
 
     /// 把同步阻塞工作交给指定队列，对调用方呈现为 async。
     nonisolated private static func onQueue<T: Sendable>(
@@ -30,8 +31,9 @@ enum HeavySampler {
         await onQueue {
             let snapshot = ProcessSampler.snapshot()
             guard !previous.isEmpty else { return ([], snapshot) }
-            let top = ProcessSampler.topProcesses(old: previous, new: snapshot,
-                                                  interval: max(interval, 0.5), limit: limit)
+            let top = ProcessSampler.topProcesses(
+                old: previous, new: snapshot,
+                interval: max(interval, 0.5), limit: limit)
             return (top, snapshot)
         }
     }
